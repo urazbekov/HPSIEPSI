@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>logFormatVersion</key>
+	<integer>10</integer>
+	<key>logs</key>
+	<dict>
+		<key>1381FFBC-066D-49FD-B82F-6CE8353B26AC</key>
+		<dict>
+			<key>className</key>
+			<string>IDEActivityLogSection</string>
+			<key>documentTypeString</key>
+			<string>&lt;nil&gt;</string>
+			<key>domainType</key>
+			<string>Xcode.IDEActivityLogDomainType.BuildLog</string>
+			<key>fileName</key>
+			<string>1381FFBC-066D-49FD-B82F-6CE8353B26AC.xcactivitylog</string>
+			<key>hasPrimaryLog</key>
+			<true/>
+			<key>primaryObservable</key>
+			<dict>
+				<key>highLevelStatus</key>
+				<string>S</string>
+			</dict>
+			<key>schemeIdentifier-containerName</key>
+			<string>HPsiEPsi project</string>
+			<key>schemeIdentifier-schemeName</key>
+			<string>HPsiEPsi</string>
+			<key>schemeIdentifier-sharedScheme</key>
+			<integer>1</integer>
+			<key>signature</key>
+			<string>Build HPsiEPsi</string>
+			<key>timeStartedRecording</key>
+			<real>595332390.72843301</real>
+			<key>timeStoppedRecording</key>
+			<real>595332391.79118896</real>
+			<key>title</key>
+			<string>Build HPsiEPsi</string>
+			<key>uniqueIdentifier</key>
+			<string>1381FFBC-066D-49FD-B82F-6CE8353B26AC</string>
+		</dict>
+	</dict>
+</dict>
+</plist>
