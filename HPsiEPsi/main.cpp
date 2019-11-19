@@ -7,23 +7,37 @@
 #include <vector>
 using namespace std;
 
-struct
-generalParameters{
+class
+generalParametersClass{
+public:
+    generalParametersClass(int N_, double RMIN_, double RMAX_, int LMAX_, double EPSILON_);
     int     N;
     double  RMAX;
     double  RMIN;
     double  H;
     int     LMAX;
     double  EPSILON;
+    vector<double> R;
 };
+
+generalParametersClass::generalParametersClass(int N_, double RMIN_, double RMAX_, int LMAX_, double EPSILON_){
+    N         = N_;
+    RMIN      = RMIN_;
+    RMAX      = RMAX_;
+    LMAX      = LMAX_;
+    H         =(RMAX -RMIN) /(N-1);
+    EPSILON   = EPSILON_;
+    for (int i =0; i <N; i++) {
+        R.push_back(H*i+0.001);
+    }
+}
+
 
 
 class
-boundPartiton {
+partitionClass {
 public:
-    boundPartiton (bool energyLab, double energy,
-                             double m1, double m2,
-                             int z1, int z2);
+    partitionClass (bool energyLab, double energy, double m1, double m2, int z1, int z2);
     double  hBarSquared =41.801651165221026;
     bool    energyLab;
     double  energy;
@@ -32,14 +46,19 @@ public:
     double  m, twoMuDevidedByhBarSquared;
     double  k, kSquared;
     double  n;
-    void    initializeData();
-    double  interactionKernel (double R);
-    double  V0;
-    double  getAssimpFunctionAtV0 (double V0);
-    double  waveFunction[];
+    vector<double>  waveFunction;
+ //   double  interactionKernel (double R);
+//    double  getAssimpFunctionAtV0 (double V0);
+    bool    boundStateQ();
+    void    setWoodsSaxonParameters(double V0, double R0, double a0);
+    double  kernelFunction(double R);
+
+private:
+    double  V0_WS, R0_WS, a0_WS;
+    int l=0;
 };
 
-boundPartiton::boundPartiton
+partitionClass::partitionClass
  (bool energyLabBool,  double energyDouble,
   double m1Double,     double m2Double,
   int z1Int,           int z2Int){
@@ -49,9 +68,6 @@ boundPartiton::boundPartiton
     m2          =m2Double;
     z1          =z1Int;
     z2          =z2Int;
-}
-
-void boundPartiton::initializeData(){
     if(energyLab)   energy      = energy *m2 /(m1 +m2);
     m                           = m1 *m2 /(m1 +m2);
     //2*amu/hbar^2 = 0.0478450
@@ -61,44 +77,68 @@ void boundPartiton::initializeData(){
     n                           = z1 *z2 *1.43997 /hBarSquared /k;
 }
 
-double boundPartiton::interactionKernel(double R){
-    return kSquared +twoMuDevidedByhBarSquared *V0
-    /(1.0 +exp((R -1.25)/0.65 ));
-    
+
+
+/*
+double
+partitionClass::interactionPotential(char potentialChar, double R_){
+    double var;
+    switch(potentialChar){
+         case "WS":
+            
+     }
+    return var;
+}
+*/
+
+double
+partitionClass::kernelFunction(double R_){
+   return  kSquared +twoMuDevidedByhBarSquared *V0_WS /( 1 +exp( (R_ - R0_WS) /a0_WS))
+    - l *(l +1) /R_;
 }
 
 void
-applyFiniteDiffMethodFor (boundPartiton partition,
-                           double *y,
-                           generalParameters parameter){
-    y[0]=0.0;
-    y[1]=0.1;
+partitionClass::setWoodsSaxonParameters(double V0_, double R0_, double a0_){
+    V0_WS  =V0_;
+    R0_WS  =R0_;
+    a0_WS  =a0_;
+}
+
+bool
+partitionClass::boundStateQ(){
+    if (energy<0) return true;
+    else    return false;
+}
+
+void
+applyFiniteDiffMethodFor (partitionClass &partition, generalParametersClass &parameter){
+    partition.waveFunction.resize(parameter.N);
+    partition.waveFunction[0]=0.0;
+    partition.waveFunction[1]=0.1;
     for (int i=2; i < parameter.N; i++) {
-        y[i] =
+        partition.waveFunction[i] =
         (2 -parameter.H *parameter.H
-        *partition.interactionKernel(parameter.H *(i-1)))
-        *y[i-1] -y[i-2];
+        *partition.kernelFunction(parameter.R[i-1]))
+        *partition.waveFunction[i-1] -partition.waveFunction[i-2];
     }
 }
-
 
 void
-applyNumerovMethodFor (boundPartiton *partition,
-                       double *y,
-                       generalParameters *parameter){
-    double gamma = parameter->H *parameter->H /12.0;
-    y[0]=0.0;
-    y[1]=0.1;
-    for (int i=2; i < parameter->N; i++) {
-        y[i] =
-        1. /(1. +gamma *partition->interactionKernel(parameter->H *(i)))
-        *((2. -10. *gamma *partition->interactionKernel(parameter->H *(i-1)) ) *y[i-1]
-          - (1. +gamma *partition->interactionKernel(parameter->H *(i-1.))) *y[i-2]);
+applyNumerovMethodFor (partitionClass &partition, generalParametersClass &parameter){
+    double gamma = parameter.H *parameter.H /12.0;
+    partition.waveFunction.resize(parameter.N);
+    partition.waveFunction[0]=0.0;
+    partition.waveFunction[1]=0.1;
+    for (int i=2; i < parameter.N; i++) {
+        partition.waveFunction[i] =
+        1. /(  1. +gamma *partition.kernelFunction( parameter.R[i] )  )
+        *(
+          (2. -10.0 *gamma *partition.kernelFunction(parameter.R[i-1]) )
+          *partition.waveFunction[i-1]
+          - (1. +gamma *partition.kernelFunction(parameter.R[i-2]))
+          *partition.waveFunction[i-2]
+          );
     }
-}
-
-double boundPartiton::getAssimpFunctionAtV0(double testV0){
-    applyNumerovMethodFor(<#boundPartiton *partition#>, <#double *y#>, <#generalParameters *parameter#>)
 }
 
 void
@@ -109,11 +149,11 @@ findRoot (double (*f)(double), double argument){
     int rootCounter=0;
     while ( true ) {
         middleTest =(rightTest +leftTest) /2;
-        partition->V0 =middleTest;
+ /*       partition->V0 =middleTest;
         applyNumerovMethodFor(&partition, y, &partition);
         if ( y[N-1] < parameter.EPSILON && y[N-1] > 0.0) break;
         if( y[N-1] > 0) leftTest =middleTest;
-        else            rightTest= middleTest;
+        else            rightTest= middleTest;*/
         rootCounter++;
         printf("%d \t %.9f \n",rootCounter, middleTest);
     }
@@ -123,25 +163,19 @@ findRoot (double (*f)(double), double argument){
 
 int
 main (void) {
-    const int N =201;
-    generalParameters parameter;
-    boundPartiton firstPartition(false, -2.225, 1.0, 1.0, 0, 0);
-    firstPartition.initializeData();
-    double y[N];
-    parameter.N         = N;
-    parameter.RMIN      = 0.000;
-    parameter.RMAX      =40.000;
-    parameter.LMAX      =40;
-    parameter.H         =(parameter.RMAX -parameter.RMIN)
-                        /(parameter.N-1);
-    parameter.EPSILON   =1.E-6;
-    firstPartition.V0=63.19828;
-    
-   
-//    applyNumerovMethodFor(&firstPartition, y, &setOfParametersODE);
-    for (int i=0; i<N; i++) {
-        printf("%f \t %.5e \n", parameter.H *i, y[i]);
+    generalParametersClass generalParameters(201, 0.001, 40.001, 40, 1.E-6);
+    partitionClass firstPartition(false, -2.225, 1.0, 1.0, 0, 0);
+    firstPartition.setWoodsSaxonParameters(63.3693, 1.25, 0.65);
+    applyNumerovMethodFor(firstPartition, generalParameters);
+
+    partitionClass secondPartition(false, -2.225, 1.0, 1.0, 0, 0);
+    secondPartition.setWoodsSaxonParameters(63.3693, 1.25, 0.65);
+    applyFiniteDiffMethodFor(secondPartition, generalParameters);
+
+    for (int i=0; i<generalParameters.N; i++) {
+        printf("%.3F\t%.5f\t%.5f\n", generalParameters.R[i], firstPartition.waveFunction[i], secondPartition.waveFunction[i]);
     }
-    printf("%d\t%.7f \n", rootCounter, middleTest);
+   // for (auto i = generalParameters.R.begin(); i != generalParameters.R.end(); ++i)
+    //cout << *i << "\n";
     return 0;
 }

@@ -1,4 +1,4 @@
-dependencies: /Users/zhan/Documents/HPsiEPsi/HPsiEPsi/main.cpp \
+dependencies: /Users/zhan/Documents/HPSIEPSI/HPsiEPsi/main.cpp \
   /usr/local/include/gsl/gsl_errno.h /usr/local/include/gsl/gsl_types.h \
   /usr/local/include/gsl/gsl_matrix.h \
   /usr/local/include/gsl/gsl_matrix_complex_long_double.h \

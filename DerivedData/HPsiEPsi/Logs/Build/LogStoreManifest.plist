@@ -6,7 +6,7 @@
 	<integer>10</integer>
 	<key>logs</key>
 	<dict>
-		<key>1381FFBC-066D-49FD-B82F-6CE8353B26AC</key>
+		<key>4B132C98-02D8-4A27-87E8-002184AC99AD</key>
 		<dict>
 			<key>className</key>
 			<string>IDEActivityLogSection</string>
@@ -15,7 +15,7 @@
 			<key>domainType</key>
 			<string>Xcode.IDEActivityLogDomainType.BuildLog</string>
 			<key>fileName</key>
-			<string>1381FFBC-066D-49FD-B82F-6CE8353B26AC.xcactivitylog</string>
+			<string>4B132C98-02D8-4A27-87E8-002184AC99AD.xcactivitylog</string>
 			<key>hasPrimaryLog</key>
 			<true/>
 			<key>primaryObservable</key>
@@ -32,13 +32,47 @@
 			<key>signature</key>
 			<string>Build HPsiEPsi</string>
 			<key>timeStartedRecording</key>
-			<real>595332390.72843301</real>
+			<real>595890801.98727202</real>
 			<key>timeStoppedRecording</key>
-			<real>595332391.79118896</real>
+			<real>595890802.80102706</real>
 			<key>title</key>
 			<string>Build HPsiEPsi</string>
 			<key>uniqueIdentifier</key>
-			<string>1381FFBC-066D-49FD-B82F-6CE8353B26AC</string>
+			<string>4B132C98-02D8-4A27-87E8-002184AC99AD</string>
+		</dict>
+		<key>682AB244-9CEA-47F5-8B45-74D030D75E4D</key>
+		<dict>
+			<key>className</key>
+			<string>IDEActivityLogSection</string>
+			<key>documentTypeString</key>
+			<string>&lt;nil&gt;</string>
+			<key>domainType</key>
+			<string>Xcode.IDEActivityLogDomainType.BuildLog</string>
+			<key>fileName</key>
+			<string>682AB244-9CEA-47F5-8B45-74D030D75E4D.xcactivitylog</string>
+			<key>hasPrimaryLog</key>
+			<true/>
+			<key>primaryObservable</key>
+			<dict>
+				<key>highLevelStatus</key>
+				<string>S</string>
+			</dict>
+			<key>schemeIdentifier-containerName</key>
+			<string>HPsiEPsi project</string>
+			<key>schemeIdentifier-schemeName</key>
+			<string>HPsiEPsi</string>
+			<key>schemeIdentifier-sharedScheme</key>
+			<integer>1</integer>
+			<key>signature</key>
+			<string>Build HPsiEPsi</string>
+			<key>timeStartedRecording</key>
+			<real>595890924.09685802</real>
+			<key>timeStoppedRecording</key>
+			<real>595890924.82333505</real>
+			<key>title</key>
+			<string>Build HPsiEPsi</string>
+			<key>uniqueIdentifier</key>
+			<string>682AB244-9CEA-47F5-8B45-74D030D75E4D</string>
 		</dict>
 	</dict>
 </dict>
