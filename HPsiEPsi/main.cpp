@@ -52,10 +52,11 @@ public:
 //    double  getAssimpFunctionAtV0 (double V0);
     bool    boundStateQ();
     void    setWoodsSaxonParameters(double V0_r_, double R0_r, double a0_r_,
-      double V0_i_ , double R0_i_, double a0_i_ );
+      double V0_i_ , double R0_i_, double a0_i_, double Rc_ );
     double  kernelFunction(double R);
     double  V0_r, R0_r, a0_r;
     double  V0_i, R0_i, a0_i;
+    double  Rc;
     int l=0;
 private:
 
@@ -97,21 +98,30 @@ partitionClass::interactionPotential(char potentialChar, double R_){
 }
 */
 
+
+
 double
 partitionClass::kernelFunction(double R_){
-   return  kSquared +twoMuDevidedByhBarSquared *V0_r /( 1 +exp( (R_ - R0_r) /a0_r))
-    - l *(l +1) /R_ /R_;
+  double coulumbVar;
+  double volumeVar;
+  double centriFugalVar;
+  volumeVar = twoMuDevidedByhBarSquared *V0_r /( 1 +exp( (R_ - R0_r) /a0_r));
+  centriFugalVar = l *(l +1) /R_ /R_;
+  if (R_ > Rc)   coulumbVar =twoMuDevidedByhBarSquared *z1 *z2 /R_;
+  else           coulumbVar =twoMuDevidedByhBarSquared *z1 *z2 *(3 -R_ *R_ /Rc /Rc) /Rc *0.5;
+  return  kSquared -volumeVar -coulumbVar -centriFugalVar;
 }
 
 void
 partitionClass::setWoodsSaxonParameters(double V0_r_, double R0_r_, double a0_r_,
-double V0_i_ =0.0, double R0_i_ =1.250, double a0_i_ =0.650){
+double V0_i_ =0.0, double R0_i_ =1.250, double a0_i_ =0.650, double Rc_ =1.25){
     V0_r  =V0_r_;
     R0_r  =R0_r_;
     a0_r  =a0_r_;
     V0_i  =V0_i_;
     R0_i  =R0_i_;
     a0_i  =a0_i_;
+    Rc    =Rc_;
 }
 
 bool
@@ -139,7 +149,7 @@ applyFiniteDiffMethodFor (partitionClass &partition, generalParametersClass &par
         (2 -parameter.H *parameter.H
         *partition.kernelFunction(parameter.R[i-1]))
         *partition.waveFunctionIm[i-1] -partition.waveFunctionIm[i-2]
-        -parameter.H *parameter.H *partition.twoMuDevidedByhBarSquared
+        +parameter.H *parameter.H *partition.twoMuDevidedByhBarSquared
         *partition.V0_i /(1 +exp(parameter.R[i-1] - partition.R0_i) /partition.a0_i)
         *partition.waveFunctionRe[i-1];
     }
@@ -163,20 +173,32 @@ applyNumerovMethodFor (partitionClass &partition, generalParametersClass &parame
 }
 
 void
-findRoot (double (*f)(double), double argument){
-    double rightTest= argument +argument *0.5;
-    double leftTest= argument +argument *0.5;
+fitDepthOfPotential (partitionClass &partition, generalParametersClass &parameters){
+    double waveFunctionAssimp =partition.waveFunctionRe[parameters.N-1];
+    printf( "%f\n", waveFunctionAssimp);
+    double flag;
+    if (waveFunctionAssimp > 0.0) flag=1.0;
+    else  flag = -1.0;
+    double rightTest= partition.V0_r +  flag *partition.V0_r *0.2;
+    double leftTest=  partition.V0_r -  flag *partition.V0_r *0.2;
     double middleTest=leftTest;
+    bool   test =false;
     int rootCounter=0;
-    while ( true ) {
+    while ( !test ) {
         middleTest =(rightTest +leftTest) /2;
- /*       partition->V0 =middleTest;
-        applyNumerovMethodFor(&partition, y, &partition);
-        if ( y[N-1] < parameter.EPSILON && y[N-1] > 0.0) break;
-        if( y[N-1] > 0) leftTest =middleTest;
-        else            rightTest= middleTest;*/
+        partition.V0_r =middleTest;
+        applyFiniteDiffMethodFor(partition, parameters);
+        waveFunctionAssimp = partition.waveFunctionRe[parameters.N-1];
+        test =  waveFunctionAssimp < parameters.EPSILON
+          && waveFunctionAssimp > 0.0;
+        if( waveFunctionAssimp > 0) leftTest =middleTest;
+        else        rightTest= middleTest;
         rootCounter++;
-        printf("%d \t %.9f \n",rootCounter, middleTest);
+        if (rootCounter > 100) {
+          printf("WARNING: COULDN'T FIT THE DEPTH OF THE POTENTIAL\n" );
+          break;
+        }
+        //        printf("%d \t %.9f \n",rootCounter, middleTest );
     }
 
 }
@@ -186,16 +208,21 @@ int
 main (void) {
     generalParametersClass generalParameters(201, 0.001, 40.001, 40, 1.E-6);
     partitionClass firstPartition(false, -2.225, 1.0, 1.0, 0, 0, 201);
-    firstPartition.setWoodsSaxonParameters(63.368593, 1.25, 0.65, 30.0, 1.25, 0.65);
-    applyNumerovMethodFor(firstPartition, generalParameters);
+    firstPartition.setWoodsSaxonParameters(-299.525, 1.25, 0.65);
+    applyFiniteDiffMethodFor(firstPartition, generalParameters);
 
     partitionClass secondPartition(false, -2.225, 1.0, 1.0, 0, 0, 201);
-    secondPartition.setWoodsSaxonParameters(63.368593, 1.25, 0.65);
-    applyFiniteDiffMethodFor(secondPartition, generalParameters);
+    secondPartition.setWoodsSaxonParameters(-303.367955, 1.25, 0.65);
+    applyNumerovMethodFor(secondPartition, generalParameters);
 
-    for (int i=0; i<generalParameters.N; i++) {
-        printf("%.3f\t%.5f\t%.5f\n", generalParameters.R[i], firstPartition.waveFunctionIm[i], secondPartition.waveFunctionRe[i]);
+    fitDepthOfPotential(firstPartition, generalParameters);
+
+
+    for (int i=150; i<generalParameters.N; i++) {
+        printf("%.3f\t%.5f\t%.5f\n", generalParameters.R[i], firstPartition.waveFunctionRe[i], secondPartition.waveFunctionRe[i]);
     }
+    printf("%.6f\n", firstPartition.V0_r );
+
    // for (auto i = generalParameters.R.begin(); i != generalParameters.R.end(); ++i)
     //cout << *i << "\n";
     return 0;
