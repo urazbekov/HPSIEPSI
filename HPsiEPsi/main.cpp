@@ -105,14 +105,15 @@ partitionClass::interactionPotential(char potentialChar, double R_){
 
 double
 partitionClass::kernelFunction(double R_){
-  double coulumbVar;
-  double volumeVar;
-  double centriFugalVar;
-  volumeVar = twoMuDevidedByhBarSquared *V0_r /( 1 +exp( (R_ - R0_r) /a0_r));
-  centriFugalVar = l *(l +1) /R_ /R_;
-  if (R_ > Rc)   coulumbVar =twoMuDevidedByhBarSquared *z1 *z2 /R_;
-  else           coulumbVar =twoMuDevidedByhBarSquared *z1 *z2 *(3 -R_ *R_ /Rc /Rc) /Rc *0.5;
-  return  kSquared -volumeVar -coulumbVar -centriFugalVar;
+  double coulumbPart;
+  double volumePart;
+  double centriFugalPart;
+  volumePart = twoMuDevidedByhBarSquared *V0_r /( 1 +exp( (R_ - R0_r) /a0_r));
+  centriFugalPart = l *(l +1) /R_ /R_;
+  if (R_ > Rc)   coulumbPart =1.  /R_;
+  else           coulumbPart =1.  *(3 -R_ *R_ /Rc /Rc) /Rc *0.5;
+  return  kSquared -volumePart -twoMuDevidedByhBarSquared *z1 *z2*1.43997 *coulumbPart
+    -centriFugalPart;
 }
 
 void
@@ -136,9 +137,9 @@ partitionClass::boundStateQ(){
 void
 applyFiniteDiffMethodFor (partitionClass &partition, generalParametersClass &parameter){
     partition.waveFunctionRe[0]=0.0;
-    partition.waveFunctionRe[1]=0.1;
+    partition.waveFunctionRe[1]=0.01;
     partition.waveFunctionIm[0]=0.0;
-    partition.waveFunctionIm[1]=0.1;
+    partition.waveFunctionIm[1]=0.01;
     for (int i=2; i < parameter.N; i++) {
         partition.waveFunctionRe[i] =
         (2 -parameter.H *parameter.H
@@ -162,7 +163,7 @@ void
 applyNumerovMethodFor (partitionClass &partition, generalParametersClass &parameter){
     double gamma = parameter.H *parameter.H /12.0;
     partition.waveFunctionRe[0]=0.0;
-    partition.waveFunctionRe[1]=0.1;
+    partition.waveFunctionRe[1]=0.01;
     for (int i=2; i < parameter.N; i++) {
         partition.waveFunctionRe[i] =
         1. /(  1. +gamma *partition.kernelFunction( parameter.R[i] )  )
@@ -214,26 +215,26 @@ fitDepthOfPotential (partitionClass &partition, generalParametersClass &paramete
     }
 
     if (test) printf("THE DEPTH V0 FITTED INTO %.5f WITH %d TRIAL\n\n", middleTest, rootCounter);
-    else   printf("WARNING: COULDN'T FIT THE DEPTH OF THE POTENTIAL\n\n" );
+    else   printf("WARNING: COULDN'T FIT THE DEPTH OF THE POTENTIAL!\n\n" );
 }
 
 
 int
 main (void) {
-    generalParametersClass generalParameters(201, 0.001, 40.001, 40, 1.E-6);
-    partitionClass firstPartition("n +p 1",false, -2.225, 1.0, 1.0, 0, 0, 201);
-    firstPartition.setWoodsSaxonParameters(-75.525, 1.25, 0.65);
+    generalParametersClass generalParameters(201, 0.001, 25.001, 40, 1.E-6);
+    partitionClass firstPartition("16O+d", false, -7.526, 15.994, 2.014, 8, 1, 201);
+    firstPartition.setWoodsSaxonParameters(-23.0, 3.15, 0.65, 3.15);
     applyFiniteDiffMethodFor(firstPartition, generalParameters);
 
-    partitionClass secondPartition("n +p 2",false, -2.225, 1.0, 1.0, 0, 0, 201);
+    partitionClass secondPartition("n +p 2",false, -2.225, 1.00, 1.00, 0, 0, 201);
     secondPartition.setWoodsSaxonParameters(-303.367955, 1.25, 0.65);
     applyNumerovMethodFor(secondPartition, generalParameters);
 
-    fitDepthOfPotential(firstPartition, generalParameters);
+    fitDepthOfPotential(firstPartition, generalParameters, 0.5);
     fitDepthOfPotential(secondPartition, generalParameters);
 
 
-    for (int i=180; i<generalParameters.N; i++) {
+    for (int i=0; i<generalParameters.N; i++) {
         printf("%.3f\t%.5f\t%.5f\n", generalParameters.R[i], firstPartition.waveFunctionRe[i], secondPartition.waveFunctionRe[i]);
     }
     printf("%.6f\n", firstPartition.V0_r );
