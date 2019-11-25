@@ -1,0 +1,8 @@
+set term postscript    #   (These commented lines would be used to )
+set output  "plot.eps"    #(generate a postscript file.            )
+set title "Wave Function of partition"
+set xlabel "R, fm"
+set ylabel "Psi"
+set logscale y
+plot "16O_d.wfn" with lines
+#pause -1 "Hit any key to continue"

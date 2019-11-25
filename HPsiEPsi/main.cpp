@@ -1,8 +1,6 @@
 #include <stdio.h>
 #include <iostream>
-//#include <gsl/gsl_errno.h>
-#include <gsl/gsl_matrix.h>
-//#include <gsl/gsl_odeiv2.h>
+#include <fstream>
 #include <math.h>
 #include <vector>
 #include <string>
@@ -40,7 +38,7 @@ partitionClass {
 public:
     partitionClass (const char*  name, bool energyLab, double energy, double m1, double m2, int z1, int z2, int N);
     string  name;
-    double  hBarSquared =41.801651165221026;
+    double  hBarSquared;
     bool    energyLab;
     double  energy;
     double  m1, m2;
@@ -58,8 +56,10 @@ public:
     double  kernelFunction(double R);
     double  V0_r, R0_r, a0_r;
     double  V0_i, R0_i, a0_i;
-    double  Rc;
-    int l=0;
+      double  Rc;
+      int l;
+      void printWaveFunction(generalParametersClass &parameter);
+
 private:
 
 };
@@ -68,6 +68,7 @@ partitionClass::partitionClass
  (const char*  nameChar, bool energyLabBool,  double energyDouble,
   double m1Double,     double m2Double,
   int z1Int,           int z2Int, int N){
+    hBarSquared =41.801651165221026;
     name =nameChar;
     energyLab   =energyLabBool;
     energy      =energyDouble;
@@ -84,10 +85,35 @@ partitionClass::partitionClass
     n                           = z1 *z2 *1.43997 /hBarSquared /k;
     waveFunctionRe.resize(N, 0.0);
     waveFunctionIm.resize(N, 0.0);
+    l =0;
 
 }
 
 
+void
+partitionClass::printWaveFunction(generalParametersClass &parameter){
+  FILE * pFile;
+  string filename =name+".wfn";
+  pFile = fopen (filename.data(),"w");
+  fprintf(pFile, "# Wave Function For the ");
+  fprintf(pFile, "%s",name.data());
+  fprintf(pFile, " partition \n");
+
+if (boundStateQ()) {
+  fprintf(pFile, "# R [fm]     Psi \n");
+  for (int i=0 ; i< parameter.N ; i++){
+    fprintf (pFile, "% .3e\t% .5e\n",parameter.R[i],waveFunctionRe[i]);
+  }
+}
+else{
+  fprintf(pFile, "# R [fm]     PsiRe         PsiIm \n");
+  for (int i=0 ; i< parameter.N ; i++){
+    fprintf (pFile, "% .3e\t% .5e\t% .5e\n",parameter.R[i],waveFunctionRe[i], waveFunctionIm[i]);
+}
+
+  fclose (pFile);
+}
+}
 
 /*
 double
@@ -221,21 +247,16 @@ fitDepthOfPotential (partitionClass &partition, generalParametersClass &paramete
 
 int
 main (void) {
-    generalParametersClass generalParameters(201, 0.001, 25.001, 40, 1.E-6);
-    partitionClass firstPartition("16O+d", false, -7.526, 15.994, 2.014, 8, 1, 201);
-    firstPartition.setWoodsSaxonParameters(-23.0, 3.15, 0.65, 3.15);
+    generalParametersClass generalParameters(201, 0.001, 20.001, 40, 1.E-6);
+    partitionClass firstPartition("16O_d", false, -7.526, 16, 2, 8, 1, 201);
+    firstPartition.setWoodsSaxonParameters(-27.0, 3.15, 0.65, 0.0, 1.25, 0.65, 3.15);
     applyFiniteDiffMethodFor(firstPartition, generalParameters);
-
-    partitionClass secondPartition("n +p 2",false, -2.225, 1.00, 1.00, 0, 0, 201);
-    secondPartition.setWoodsSaxonParameters(-303.367955, 1.25, 0.65);
-    applyNumerovMethodFor(secondPartition, generalParameters);
-
     fitDepthOfPotential(firstPartition, generalParameters, 0.5);
-    fitDepthOfPotential(secondPartition, generalParameters);
+    firstPartition.printWaveFunction(generalParameters);
 
 
-    for (int i=0; i<generalParameters.N; i++) {
-        printf("%.3f\t%.5f\t%.5f\n", generalParameters.R[i], firstPartition.waveFunctionRe[i], secondPartition.waveFunctionRe[i]);
+    for (int i=180; i<generalParameters.N; i++) {
+        printf("%.3f\t%.5f\n", generalParameters.R[i], firstPartition.waveFunctionRe[i]);
     }
     printf("%.6f\n", firstPartition.V0_r );
 

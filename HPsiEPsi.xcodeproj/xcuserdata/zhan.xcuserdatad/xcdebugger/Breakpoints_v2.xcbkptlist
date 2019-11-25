@@ -16,8 +16,8 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "118"
             endingLineNumber = "118"
-            landmarkName = "applyFiniteDiffMethodFor(partition, parameter)"
-            landmarkType = "9">
+            landmarkName = "partitionClass::kernelFunction(R_)"
+            landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
       <BreakpointProxy
@@ -32,7 +32,7 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "172"
             endingLineNumber = "172"
-            landmarkName = "main()"
+            landmarkName = "applyNumerovMethodFor(partition, parameter)"
             landmarkType = "9">
          </BreakpointContent>
       </BreakpointProxy>
