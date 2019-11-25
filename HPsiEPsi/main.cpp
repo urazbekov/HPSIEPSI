@@ -54,9 +54,10 @@ public:
     vector<double>  coulombG;
     vector<double>  coulombFPrime;
     vector<double>  coulombGPrime;
-    vector< vector <double> >  waveFunctionRe;
-    vector< vector <double> >  waveFunctionIm;
+    vector<double>  waveFunctionRe;
+    vector<double>  waveFunctionIm;
 
+//    vector< vector<int> >
  //   double  interactionKernel (double R);
 //    double  getAssimpFunctionAtV0 (double V0);
     bool    boundStateQ();
@@ -260,15 +261,13 @@ fitDepthOfPotential (partitionClass &partition, generalParametersClass &paramete
 int
 setCoulombWaveFunctionsFor(partitionClass &partition, generalParametersClass &parameters) {
   double F_exponent, G_exponent;
-  double* arrayG        = &partition.coulombG[0];
-  double* arrayF        = &partition.coulombF[0];
-  double* arrayGPrime   = &partition.coulombGPrime[0];
-  double* arrayFPrime   = &partition.coulombFPrime[0];
   return
   gsl_sf_coulomb_wave_FGp_array(0.0, parameters.LMAX,
     partition.n, partition.k *parameters.R.back(),
-// 1.0, 5.0,
-    arrayF, arrayFPrime, arrayG, arrayGPrime,  &F_exponent, &G_exponent);
+ //1.0, 5.0,
+    &partition.coulombF[0], &partition.coulombFPrime[0],
+    &partition.coulombG[0], &partition.coulombGPrime[0],
+    &F_exponent, &G_exponent);
 }
 
 
