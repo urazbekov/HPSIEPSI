@@ -4,25 +4,28 @@
 #include <math.h>
 #include <vector>
 #include <string>
+#include <gsl/gsl_sf_coulomb.h>
 using namespace std;
 
 class
 generalParametersClass{
 public:
-    generalParametersClass(int N_, double RMIN_, double RMAX_, int LMAX_, double EPSILON_);
+    generalParametersClass(int N_, double RMIN_, double RMAX_, int LMIN_, int LMAX_, double EPSILON_);
     int     N;
     double  RMAX;
     double  RMIN;
     double  H;
+    int     LMIN;
     int     LMAX;
     double  EPSILON;
     vector<double> R;
 };
 
-generalParametersClass::generalParametersClass(int N_, double RMIN_, double RMAX_, int LMAX_, double EPSILON_){
+generalParametersClass::generalParametersClass(int N_, double RMIN_, double RMAX_, int LMIN_, int LMAX_, double EPSILON_){
     N         = N_;
     RMIN      = RMIN_;
     RMAX      = RMAX_;
+    LMIN      = LMIN_;
     LMAX      = LMAX_;
     H         =(RMAX -RMIN) /(N-1);
     EPSILON   = EPSILON_;
@@ -36,7 +39,8 @@ generalParametersClass::generalParametersClass(int N_, double RMIN_, double RMAX
 class
 partitionClass {
 public:
-    partitionClass (const char*  name, bool energyLab, double energy, double m1, double m2, int z1, int z2, int N);
+    partitionClass ( const char*  name, bool energyLab, double energy,
+      double m1, double m2, int z1, int z2, const int &N);
     string  name;
     double  hBarSquared;
     bool    energyLab;
@@ -46,8 +50,13 @@ public:
     double  m, twoMuDevidedByhBarSquared;
     double  k, kSquared;
     double  n;
-    vector<double>  waveFunctionRe;
-    vector<double>  waveFunctionIm;
+    vector<double>  coulombF;
+    vector<double>  coulombG;
+    vector<double>  coulombFPrime;
+    vector<double>  coulombGPrime;
+    vector< vector <double> >  waveFunctionRe;
+    vector< vector <double> >  waveFunctionIm;
+
  //   double  interactionKernel (double R);
 //    double  getAssimpFunctionAtV0 (double V0);
     bool    boundStateQ();
@@ -67,7 +76,7 @@ private:
 partitionClass::partitionClass
  (const char*  nameChar, bool energyLabBool,  double energyDouble,
   double m1Double,     double m2Double,
-  int z1Int,           int z2Int, int N){
+  int z1Int,           int z2Int, const int &N){
     hBarSquared =41.801651165221026;
     name =nameChar;
     energyLab   =energyLabBool;
@@ -85,6 +94,10 @@ partitionClass::partitionClass
     n                           = z1 *z2 *1.43997 /hBarSquared /k;
     waveFunctionRe.resize(N, 0.0);
     waveFunctionIm.resize(N, 0.0);
+    coulombF.resize(N, 0.0);
+    coulombG.resize(N, 0.0);
+    coulombFPrime.resize(N, 0.0);
+    coulombGPrime.resize(N, 0.0);
     l =0;
 
 }
@@ -244,21 +257,39 @@ fitDepthOfPotential (partitionClass &partition, generalParametersClass &paramete
     else   printf("WARNING: COULDN'T FIT THE DEPTH OF THE POTENTIAL!\n\n" );
 }
 
+int
+setCoulombWaveFunctionsFor(partitionClass &partition, generalParametersClass &parameters) {
+  double F_exponent, G_exponent;
+  double* arrayG        = &partition.coulombG[0];
+  double* arrayF        = &partition.coulombF[0];
+  double* arrayGPrime   = &partition.coulombGPrime[0];
+  double* arrayFPrime   = &partition.coulombFPrime[0];
+  return
+  gsl_sf_coulomb_wave_FGp_array(0.0, parameters.LMAX,
+    partition.n, partition.k *parameters.R.back(),
+// 1.0, 5.0,
+    arrayF, arrayFPrime, arrayG, arrayGPrime,  &F_exponent, &G_exponent);
+}
+
 
 int
 main (void) {
-    generalParametersClass generalParameters(201, 0.001, 20.001, 40, 1.E-6);
-    partitionClass firstPartition("16O_d", false, -7.526, 16, 2, 8, 1, 201);
+    const int arraySize =201;
+    generalParametersClass generalParameters(arraySize, 0.001, 20.001, 0, 30, 1.E-6);
+    partitionClass firstPartition("16O_d", false, 17.526, 16, 2, 8, 1, arraySize);
     firstPartition.setWoodsSaxonParameters(-27.0, 3.15, 0.65, 0.0, 1.25, 0.65, 3.15);
     applyFiniteDiffMethodFor(firstPartition, generalParameters);
-    fitDepthOfPotential(firstPartition, generalParameters, 0.5);
+//    fitDepthOfPotential(firstPartition, generalParameters, 0.5);
     firstPartition.printWaveFunction(generalParameters);
 
 
-    for (int i=180; i<generalParameters.N; i++) {
-        printf("%.3f\t%.5f\n", generalParameters.R[i], firstPartition.waveFunctionRe[i]);
-    }
-    printf("%.6f\n", firstPartition.V0_r );
+
+    if (setCoulombWaveFunctionsFor(firstPartition, generalParameters)!=0)
+    cout<< "error!"<<endl;
+for (int l = 0; l <= generalParameters.LMAX; l++) {
+  printf("%d\t% .5e\t% .5e\n", l, firstPartition.coulombF[l], firstPartition.coulombG[l]);
+}
+
 
    // for (auto i = generalParameters.R.begin(); i != generalParameters.R.end(); ++i)
     //cout << *i << "\n";
