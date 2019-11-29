@@ -150,6 +150,10 @@ partitionClass::getCoulombPotential(double R){
                 return z1 *z2*1.43997 *(3 -R *R /Rc /Rc) /Rc *0.5;
 }
 
+
+
+
+
 void
 partitionClass::getSmatrix(generalParametersClass &parameter) {
         setCoulombWaveFunctions(parameter);
@@ -353,26 +357,62 @@ partitionClass::setCoulombWaveFunctions(generalParametersClass &parameters) {
                                               &F_exponent, &G_exponent);
 }
 
+int arraySize =201;
+generalParametersClass generalParameters(arraySize, 0.001, 40.001, 0, 25, 1.E-6);
+partitionClass firstPartition("Zn67_d", true, 6.0, 2., 67., 1, 30, generalParameters);
+
+
+int
+func (double t, const double y[], double f[],
+      void *params)
+{
+
+        f[0] = y[1];
+        f[1] = -firstPartition.kernelFunction(t) *y[0];
+        return GSL_SUCCESS;
+}
+
+void
+gsl_solveODE(partitionClass &partition, generalParametersClass &parameter){
+
+        gsl_odeiv2_system sys = {func, NULL, 2, NULL};
+        gsl_odeiv2_driver * d =
+                gsl_odeiv2_driver_alloc_y_new (&sys, gsl_odeiv2_step_rk8pd,
+                                               1e-6, 1e-6, 0.0);
+        double t = parameter.RMIN, t1 = parameter.RMAX;
+        double y[2] = { 0.0, 0.4 };
+        for (double ti = 0.001; ti <= t1; ti= ti+parameter.H)
+        {
+                int status = gsl_odeiv2_driver_apply (d, &t, ti, y);
+                if (status != GSL_SUCCESS)
+                {
+                        printf ("error, return value=%d\n", status);
+                        break;
+                }
+                printf ("% .3f\t% .5e\t% .5e\n", t, y[0], y[1]);
+        }
+        gsl_odeiv2_driver_free (d);
+}
+
 int
 main (void) {
-        int arraySize =201;
         generalParametersClass generalParameters(arraySize, 0.001, 40.001, 0, 25, 1.E-6);
-        partitionClass firstPartition("Zn67_d", true, 6.0, 2., 67., 1, 30, generalParameters);
-        firstPartition.setWoodsSaxonParameters(-107.0, 4.32555, 0.86, 40.24, 6.22635, 0.884, 4.87386);
-        applyFiniteDiffMethodFor(firstPartition, generalParameters);
+
+        firstPartition.setWoodsSaxonParameters(-107.0, 4.32555, 0.86, 0.0, 0.0, 0.0, 4.87386);
+
+        gsl_solveODE(firstPartition, generalParameters);
+
+        partitionClass secondPartition("Zn67_d", true, 6.0, 2., 67., 1, 30, generalParameters);
+        secondPartition.setWoodsSaxonParameters(-107.0, 4.32555, 0.86, 0.0, 0.0, 0.0, 4.87386);
+        applyFiniteDiffMethodFor(secondPartition, generalParameters);
 //    fitDepthOfPotential(firstPartition, generalParameters, 0.5);
-        firstPartition.printWaveFunction(generalParameters);
-        firstPartition.getSmatrix(generalParameters);
+//        secondPartition.printWaveFunction(generalParameters);
+//        secondPartition.getSmatrix(generalParameters);
 
-        for (int l_ = 0; l_ <= 1; l_++) {
-                printf("%d\t", l_);
-                for(int Ri=0; Ri<7; Ri++) {
-                        printf("% .2e  ", firstPartition.waveFunctionRe[l_][Ri]);
-                }
-                printf("\n" );
+
+        for(int Ri=0; Ri<arraySize; Ri++) {
+                printf("%.3f\t% .5e\t% .5e\n", generalParameters.R[Ri],secondPartition.waveFunctionRe[0][Ri],secondPartition.waveFunctionPrimeRe[0][Ri]);
         }
-
-        cout<<firstPartition.kSquared<<endl;
 
         // for (auto i = generalParameters.R.begin(); i != generalParameters.R.end(); ++i)
         //cout << *i << "\n";
