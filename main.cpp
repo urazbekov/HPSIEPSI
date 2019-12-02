@@ -257,7 +257,7 @@ applyFiniteDiffMethodFor (partitionClass &partition, generalParametersClass &par
                 partition.waveFunctionPrimeIm[l_][0]=0.4;
 
                 for (int i=1; i < parameter.N; i++) {
-                        tempKernelFunction = 2 -tempKappaSquared
+                        tempKernelFunction = 2.0 -tempKappaSquared
                                              *partition.kernelFunction(parameter.R[i]);
                         partition.waveFunctionRe[l_][i+1] =
                                 tempKernelFunction *partition.waveFunctionRe[l_][i]
@@ -358,60 +358,98 @@ partitionClass::setCoulombWaveFunctions(generalParametersClass &parameters) {
 }
 
 int arraySize =201;
-generalParametersClass generalParameters(arraySize, 0.001, 40.001, 0, 25, 1.E-6);
+generalParametersClass generalParameters(arraySize, 0.001, 40.001, 0, 1, 1.E-6);
 partitionClass firstPartition("Zn67_d", true, 6.0, 2., 67., 1, 30, generalParameters);
 
 
 int
-func (double t, const double y[], double f[],
-      void *params)
+functionForChi (double t, const double x[], double f[],
+                void *params)
 {
+        double remnantForChi = *(double *)params;
+        f[0] = x[1];
+        f[1] =-firstPartition.kernelFunction(t) *x[0] +remnantForChi;
+        return GSL_SUCCESS;
+}
 
+
+int
+functionForUpsilon (double t, const double y[], double f[],
+                    void *params)
+{
+        double remnantForUpsilon = *(double *)params;
         f[0] = y[1];
-        f[1] = -firstPartition.kernelFunction(t) *y[0];
+        f[1] =-firstPartition.kernelFunction(t) *y[0] +remnantForUpsilon;
         return GSL_SUCCESS;
 }
 
 void
 gsl_solveODE(partitionClass &partition, generalParametersClass &parameter){
+        double tChi = parameter.RMIN;
+        double tUpsilon = parameter.RMIN;
 
-        gsl_odeiv2_system sys = {func, NULL, 2, NULL};
-        gsl_odeiv2_driver * d =
-                gsl_odeiv2_driver_alloc_y_new (&sys, gsl_odeiv2_step_rk8pd,
-                                               1e-6, 1e-6, 0.0);
-        double t = parameter.RMIN, t1 = parameter.RMAX;
+        double remnantForChi;
+        double remnantForUpsilon;
+
         double y[2] = { 0.0, 0.4 };
-        for (double ti = 0.001; ti <= t1; ti= ti+parameter.H)
+        double x[2] = { 0.0, 0.4 };
+
+        gsl_odeiv2_system systemForChi =       {functionForChi, NULL, 2, &remnantForChi};
+        gsl_odeiv2_system systemForUpsilon =       {functionForUpsilon, NULL, 2, &remnantForUpsilon};
+
+        gsl_odeiv2_driver * driverForChi =
+                gsl_odeiv2_driver_alloc_y_new (&systemForChi, gsl_odeiv2_step_rk4, 1e-6, 1e-6, 0.0);
+        gsl_odeiv2_driver * driverForUpsilon =
+                gsl_odeiv2_driver_alloc_y_new (&systemForUpsilon, gsl_odeiv2_step_rk4, 1e-6, 1e-6, 0.0);
+
+        int statusForChi;
+        int statusForUpsilon;
+
+        for (int i = 1; i < parameter.N; i++)
         {
-                int status = gsl_odeiv2_driver_apply (d, &t, ti, y);
-                if (status != GSL_SUCCESS)
-                {
-                        printf ("error, return value=%d\n", status);
+                remnantForChi= -partition.twoMuDevidedByhBarSquared
+                               *partition.V0_i/ exp( (parameter.R[i-1]-partition.R0_i) /partition.a0_i)
+                               * partition.waveFunctionIm[0][i-1];
+                remnantForUpsilon= partition.twoMuDevidedByhBarSquared
+                                   *partition.V0_i/ exp( (parameter.R[i-1]-partition.R0_i) /partition.a0_i)
+                                   *partition.waveFunctionRe[0][i-1];
+                statusForChi =
+                        gsl_odeiv2_driver_apply (driverForChi, &tChi, parameter.R[i], x);
+                statusForUpsilon
+                        = gsl_odeiv2_driver_apply (driverForUpsilon, &tUpsilon, parameter.R[i], y);
+                if (statusForChi && statusForUpsilon != GSL_SUCCESS)  {
+                        printf ("error, return value=%d\n", statusForChi);
                         break;
                 }
-                printf ("% .3f\t% .5e\t% .5e\n", t, y[0], y[1]);
+                printf ("% .3f\t % .5e\t% .5e\t \t % .5e\t% .5e\n", parameter.R[i], y[0], y[1], x[0], x[1]);
+                partition.waveFunctionRe[0][i]=x[0];
+                partition.waveFunctionIm[0][i]=y[0];
+                partition.waveFunctionPrimeRe[0][i]=x[1];
+                partition.waveFunctionPrimeIm[0][i]=y[1];
+
         }
-        gsl_odeiv2_driver_free (d);
+        gsl_odeiv2_driver_free (driverForUpsilon);
+        gsl_odeiv2_driver_free (driverForChi);
 }
 
 int
 main (void) {
-        generalParametersClass generalParameters(arraySize, 0.001, 40.001, 0, 25, 1.E-6);
 
-        firstPartition.setWoodsSaxonParameters(-107.0, 4.32555, 0.86, 0.0, 0.0, 0.0, 4.87386);
+        firstPartition.setWoodsSaxonParameters(-107.0, 4.32555, 0.86, 0.0, 1.0, 1.0, 4.87386);
 
         gsl_solveODE(firstPartition, generalParameters);
 
-        partitionClass secondPartition("Zn67_d", true, 6.0, 2., 67., 1, 30, generalParameters);
-        secondPartition.setWoodsSaxonParameters(-107.0, 4.32555, 0.86, 0.0, 0.0, 0.0, 4.87386);
-        applyFiniteDiffMethodFor(secondPartition, generalParameters);
+//        partitionClass secondPartition("Zn67_d", true, 6.0, 2., 67., 1, 30, generalParameters);
+//        secondPartition.setWoodsSaxonParameters(-107.0, 4.32555, 0.86, 0.0, 1.0, 1.0, 4.87386);
+//        applyFiniteDiffMethodFor(secondPartition, generalParameters);
 //    fitDepthOfPotential(firstPartition, generalParameters, 0.5);
 //        secondPartition.printWaveFunction(generalParameters);
 //        secondPartition.getSmatrix(generalParameters);
 
 
         for(int Ri=0; Ri<arraySize; Ri++) {
-                printf("%.3f\t% .5e\t% .5e\n", generalParameters.R[Ri],secondPartition.waveFunctionRe[0][Ri],secondPartition.waveFunctionPrimeRe[0][Ri]);
+                //          printf("%.3f\t% .5e\t% .5e\n", generalParameters.R[Ri], firstPartition.waveFunctionRe[0][Ri],
+                //               firstPartition.waveFunctionIm[0][Ri]);
         }
 
         // for (auto i = generalParameters.R.begin(); i != generalParameters.R.end(); ++i)
