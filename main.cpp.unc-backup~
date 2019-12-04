@@ -456,7 +456,7 @@ gsl_solveODE(partitionClass &partition,
 
     gsl_odeiv2_driver_free(driverForUpsilon);
     gsl_odeiv2_driver_free(driverForChi);
-} // gsl_solveODE
+} 
 
 
 int
