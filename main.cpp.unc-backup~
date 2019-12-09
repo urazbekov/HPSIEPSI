@@ -283,20 +283,75 @@ applyNumerovMethodFor(partitionClass &partition,
                       generalParametersClass &parameter){
 
     double gamma = parameter.H * parameter.H / 12.0;
+    double gammaSquared = gamma * gamma;
+    double Wip1, Wi, Wim1;
+    double Vip1, Vi, Vim1;
+    double xim1, xi;
+    double yim1, yi;
 
-    partition.waveFunctionRe[partition.l][0] = 0.0;
-    partition.waveFunctionRe[partition.l][1] = 0.01;
-    for (int i = 1; i < parameter.N; i++) {
-        partition.waveFunctionRe[partition.l][i + 1] =
-            1. / (  1. + gamma * partition.kernelFunction(parameter.R[i + 1])  )
-            * (  (2. - 10.0 * gamma * partition.kernelFunction(parameter.R[i]) )
-                 * partition.waveFunctionRe[partition.l][i]
-                 - (1. + gamma * partition.kernelFunction(parameter.R[i - 1]))
-                 * partition.waveFunctionRe[partition.l][i - 1]
-                 );
+    double A1, B1, C1, D1, E;
+    double A2, B2, C2, D2;
+
+    for (int l_ = 0; l_ <= parameter.LMAX; l_++) {
+        partition.l = l_;
+        partition.waveFunctionRe[l_][0] = 0.0;
+        partition.waveFunctionRe[l_][1] = 0.01;
+        partition.waveFunctionIm[l_][0] = 0.0;
+        partition.waveFunctionIm[l_][1] = 0.01;
+        for (int i = 1; i < parameter.N; i++) {
+
+            Wip1 = partition.kernelFunction(parameter.R[i + 1]);
+            Wi = partition.kernelFunction(parameter.R[i]);
+            Wim1 = partition.kernelFunction(parameter.R[i - 1]);
+
+            Vip1 = partition.getWoodSaxonVolumeIm(parameter.R[i + 1]);
+            Vi = partition.getWoodSaxonVolumeIm(parameter.R[i]);
+            Vim1 = partition.getWoodSaxonVolumeIm(parameter.R[i - 1]);
+
+            xim1 = partition.waveFunctionRe[l_][i - 1];
+            xi = partition.waveFunctionRe[l_][i];
+
+            yim1 = partition.waveFunctionIm[l_][i - 1];
+            yi = partition.waveFunctionIm[l_][i];
+
+            A1 = xi * (2 - 10 * gammaSquared * Vi * Vip1 - 10 * gamma * Wi + 2 * gamma * Wip1
+                       + 10 * gammaSquared * Wi * Wip1);
+            B1 = xim1 * (-1 - gammaSquared * Vim1 * Vip1 - gamma * Wim1 - gamma * Wip1
+                         - gamma * gammaSquared * Wim1 * Wip1);
+            C1 = yi * (-10 * gamma * Vi - 2 * gamma * Vip1 + 10 * gammaSquared * Vip1 * Wi
+                       - 10 * gammaSquared * Vi * Wip1);
+            D1 = yim1 * (-gamma * Vim1 + gamma * Vip1 + gammaSquared * Vip1 * Wim1
+                         - gammaSquared * Vim1 * Wip1);
+            E = 1 + gammaSquared * Vip1 * Vip1 + 2 * gamma * Wip1 + gammaSquared * Wip1 * Wip1;
+
+
+            partition.waveFunctionRe[l_][i + 1] = (A1 + B1 + C1 + D1) / E;
+
+            A2 = xi * (10 * gamma * Vi + 2 * gamma * Vip1 - 10 * gammaSquared * Vip1 * Wi
+                       + 10 * gammaSquared * Vi * Wip1);
+            B2 = xim1 * (gamma * Vim1 - gamma * Vip1 - gammaSquared * Vip1 * Wim1
+                         + gammaSquared * Vim1 * Wip1);
+            C2 = yi * (2 - 10 * gammaSquared * Vi * Vip1 - 10 * gamma * Wi + 2 * gamma * Wip1
+                       - 10 * gammaSquared * Wi * Wip1);
+            D2 = yim1 * (-1 - gammaSquared * Vim1 * Vip1 - gamma * Wim1 - gamma * Wip1
+                         - gammaSquared * Wim1 * Wip1);
+
+            partition.waveFunctionIm[l_][i + 1] = (A2 + B2 + C2 + D2) / E;
+/*
+ *          partition.waveFunctionRe[partition.l][i + 1] =
+ *              1. / (  1. + gamma * partition.kernelFunction(parameter.R[i + 1])  )
+ * (  (2. - 10.0 * gamma * partition.kernelFunction(parameter.R[i]) )
+ * partition.waveFunctionRe[partition.l][i]
+ *                   - (1. + gamma * partition.kernelFunction(parameter.R[i - 1]))
+ * partition.waveFunctionRe[partition.l][i - 1]
+ *                   );
+ *
+ */
+
+        }
     }
 
-}
+} // applyNumerovMethodFor
 
 void
 fitDepthOfPotential(partitionClass &partition,
@@ -451,28 +506,29 @@ int
 main(void){
 
     int arraySize = 801;
-    generalParametersClass generalParameters(arraySize, 0.001, 40.0, 0, 1, 1.E-6);
+    generalParametersClass generalParameters(arraySize, 0.001, 40.0, 0, 25, 1.E-6);
     partitionClass firstPartition("Zn67_d", true, 6.0, 2., 67., 1, 30,
                                   generalParameters);
 
-    firstPartition.setWoodsSaxonParameters(-107.0, 4.26463, 0.86, -1.e1 * 40.24, 6.22635, 0.884, 5.28001);
-    firstPartition.l = 0;
+    firstPartition.setWoodsSaxonParameters(-107.0, 4.26463, 0.86,
+                                           -0.0 * 40.24, 6.22635, 0.884, 5.28001);
 
-    gsl_solveODE(firstPartition, generalParameters);
+    //  gsl_solveODE(firstPartition, generalParameters);
 
     //        partitionClass secondPartition("Zn67_d", true, 6.0, 2., 67., 1, 30,
     //        generalParameters);
     //        secondPartition.setWoodsSaxonParameters(-107.0, 4.32555, 0.86,
     //        0.0, 1.0, 1.0, 4.87386);
-    //  applyFiniteDiffMethodFor(firstPartition, generalParameters);
+    // applyFiniteDiffMethodFor(firstPartition, generalParameters);
     //        fitDepthOfPotential(firstPartition, generalParameters, 0.5);
     // firstPartition.printWaveFunction(generalParameters);
-//    applyNumerovMethodFor(firstPartition, generalParameters);
+    applyNumerovMethodFor(firstPartition, generalParameters);
     // firstPartition.getSmatrix(generalParameters);
 
     for (int l_ = 0; l_ < generalParameters.LMAX; l_++) {
         // printf("%d\t% .5f\t% .5f\n", l_, firstPartition.sMatrixRe[l_], firstPartition.sMatrixIm[l_]);
     }
+    firstPartition.l = 0;
 
     // return 0;
     for (int i = 0; i < arraySize; i++) {
@@ -480,7 +536,7 @@ main(void){
                firstPartition.waveFunctionRe[firstPartition.l][i],
                firstPartition.waveFunctionIm[firstPartition.l][i]);
     }
-    printf("%f\n", generalParameters.R[0]);
+    //    printf("%f\n", generalParameters.R[0]);
     // for (auto i = generalParameters.R.begin(); i != generalParameters.R.end();
     // ++i)
     // cout << *i << "\n";
