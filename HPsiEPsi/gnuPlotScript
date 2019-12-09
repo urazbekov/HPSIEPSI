@@ -1,0 +1,11 @@
+set term pdf  #   (These commented lines would be used to )
+set output  "plot.pdf"    #(generate a postscript file.            )
+set title "Wave Function of partition"
+set xlabel "R, fm"
+set ylabel "Psi"
+#set logscale y
+plot "16O_d.wfn" using 1:2 with lines, \
+"16O_d.wfn" using 1:3 with lines, \
+"16O_d.wfn" using 1:4 with lines, \
+#"16O_d.wfn" using 1:5 with lines
+#pause -1 "Hit any key to continue"

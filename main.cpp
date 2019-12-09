@@ -181,16 +181,24 @@ partitionClass::getSmatrix(generalParametersClass &parameter){
         setCoulombWaveFunctions(parameter);
         double a, b, c, d;
         double A, B, C, D;
+        double x1, x2;
+        double y1, y2;
+        double F1, F2;
+        double G1, G2;
         double AsquaredPlusBsquared;
         for (int l_ = parameter.LMIN; l_ <= parameter.LMAX; l_++) {
-                a = waveFunctionPrimeRe[l_][parameter.N - 2] * coulombF[l_]
-                    - waveFunctionRe[l_][parameter.N - 2] * coulombFPrime[l_];
-                b = waveFunctionIm[l_][parameter.N - 2] * coulombGPrime[l_]
-                    - waveFunctionPrimeIm[l_][parameter.N - 2] * coulombG[l_];
-                c = waveFunctionPrimeIm[l_][parameter.N - 2] * coulombF[l_]
-                    - waveFunctionIm[l_][parameter.N - 2] * coulombFPrime[l_];
-                d = waveFunctionRe[l_][parameter.N - 2] * coulombGPrime[l_]
-                    - waveFunctionPrimeRe[l_][parameter.N - 2] * coulombG[l_];
+                x1= waveFunctionRe[l_][parameter.N - 2];
+                x2 =  waveFunctionPrimeRe[l_][parameter.N - 2];
+                y1= waveFunctionIm[l_][parameter.N - 2];
+                y2=waveFunctionPrimeIm[l_][parameter.N - 2];
+                F1 =coulombF[l_];
+                F2 =k* coulombFPrime[l_];
+                G1 =coulombG[l_];
+                G2 =k* coulombGPrime[l_];
+                a =x2*F1-x1*F2;
+                b = y1*G2-y2*G1;
+                c =y2*F1-y1*F2;
+                d =x1*G2-x2*G1;
                 A = b - a;
                 B = -c - d;
                 C = a + b;
@@ -198,6 +206,7 @@ partitionClass::getSmatrix(generalParametersClass &parameter){
                 AsquaredPlusBsquared = A * A + B * B;
                 sMatrixRe[l_] = (A * C + B * D) / AsquaredPlusBsquared;
                 sMatrixIm[l_] = (A * D - B * C) / AsquaredPlusBsquared;
+                printf("% .5e\t% .5e\t% .5e\t% .5e\t% .5e\n", parameter.R[parameter.N-2],x1/x2,y1/y2, F1/F2, G1/G2);
         }
 } // partitionClass::getSmatrix
 
@@ -283,10 +292,10 @@ applyFiniteDiffMethodFor(partitionClass &partition,
                                 * partition.waveFunctionRe[l_][i];
                         partition.waveFunctionPrimeRe[l_][i] =
                                 (partition.waveFunctionRe[l_][i + 1] - partition.waveFunctionRe[l_][i - 1])
-                                / parameter.H;
+                                / parameter.H /2.;
                         partition.waveFunctionPrimeIm[l_][i] =
                                 (partition.waveFunctionIm[l_][i + 1] - partition.waveFunctionIm[l_][i - 1])
-                                / parameter.H;
+                                / parameter.H /2.;
                 }
         }
 } // applyFiniteDiffMethodFor
@@ -337,10 +346,7 @@ applyNumerovMethodFor(partitionClass &partition,
                                    - 10 * gammaSquared * Vi * Wip1);
                         D1 = yim1 * (-gamma * Vim1 + gamma * Vip1 + gammaSquared * Vip1 * Wim1
                                      - gammaSquared * Vim1 * Wip1);
-                        E = 1 + gammaSquared * Vip1 * Vip1 + 2 * gamma * Wip1 + gammaSquared * Wip1 * Wip1;
 
-
-                        partition.waveFunctionRe[l_][i + 1] = (A1 + B1 + C1 + D1) / E;
 
                         A2 = xi * (10 * gamma * Vi + 2 * gamma * Vip1 - 10 * gammaSquared * Vip1 * Wi
                                    + 10 * gammaSquared * Vi * Wip1);
@@ -350,11 +356,14 @@ applyNumerovMethodFor(partitionClass &partition,
                                    - 10 * gammaSquared * Wi * Wip1);
                         D2 = yim1 * (-1 - gammaSquared * Vim1 * Vip1 - gamma * Wim1 - gamma * Wip1
                                      - gammaSquared * Wim1 * Wip1);
+                        E = 1 + gammaSquared * Vip1 * Vip1 + 2 * gamma * Wip1 + gammaSquared * Wip1 * Wip1;
 
+                        partition.waveFunctionRe[l_][i + 1] = (A1 + B1 + C1 + D1) / E;
                         partition.waveFunctionIm[l_][i + 1] = (A2 + B2 + C2 + D2) / E;
-
-                        partition.waveFunctionPrimeRe[l_][i]= (partition.waveFunctionRe[l_][i + 1] - xim1) /parameter.H;
-                        partition.waveFunctionPrimeIm[l_][i]= (partition.waveFunctionIm[l_][i + 1] - yim1) /parameter.H;
+                        partition.waveFunctionPrimeRe[l_][i]=
+                                (partition.waveFunctionRe[l_][i + 1] - xim1) /parameter.H /2.;
+                        partition.waveFunctionPrimeIm[l_][i]=
+                                (partition.waveFunctionIm[l_][i + 1] - yim1) /parameter.H /2.;
 
                 }
         }
@@ -410,10 +419,10 @@ int
 partitionClass::setCoulombWaveFunctions(
         generalParametersClass &parameters){
         double F_exponent, G_exponent;
-
         return gsl_sf_coulomb_wave_FGp_array(
-                parameters.LMIN, parameters.LMAX, n, k * parameters.R[parameters.N - 2],
-                // 1.0, 5.0,
+                parameters.LMIN, parameters.LMAX,
+                n, k * parameters.R[parameters.N - 2], // attention: derivative of F'(x) and G'(x) goes over x=kr
+                //    1.0, 5.0,
                 &coulombF[0], &coulombFPrime[0], &coulombG[0], &coulombGPrime[0],
                 &F_exponent, &G_exponent);
 }
@@ -514,7 +523,7 @@ int
 main(void){
 
         int arraySize = 801;
-        generalParametersClass generalParameters(arraySize, 0.001, 40.0, 0, 50, 1.E-6);
+        generalParametersClass generalParameters(arraySize, 0.001, 40.0, 0, 20, 1.E-6);
         partitionClass firstPartition("Zn67_d", true, 6.0, 2., 67., 1, 30,
                                       generalParameters);
 
@@ -537,11 +546,12 @@ main(void){
         firstPartition.getSmatrix(generalParameters);
 
         for (int l_ = 0; l_ <= generalParameters.LMAX; l_++) {
-                printf("%d\t% .5f\t% .5f\n", l_, firstPartition.sMatrixRe[l_], firstPartition.sMatrixIm[l_]);
+                printf("%d\t% .5e\t% .5e\n", l_, firstPartition.sMatrixRe[l_], firstPartition.sMatrixIm[l_]);
         }
 
-        printf("%f\n",firstPartition.n);
         return 0;
+
+
         for (int i = 0; i < arraySize; i++) {
                 printf("%.3f\t% .5e\t% .5e\n", generalParameters.R[i],
                        firstPartition.waveFunctionPrimeRe[firstPartition.l][i],
