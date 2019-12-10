@@ -2,6 +2,7 @@
 #include <gsl/gsl_matrix.h>
 #include <gsl/gsl_odeiv2.h>
 #include <gsl/gsl_sf_coulomb.h>
+#include <gsl/gsl_sf_gamma.h>
 #include <iostream>
 #include <math.h>
 #include <stdio.h>
@@ -51,6 +52,7 @@ int z1, z2;
 double m, twoMuDevidedByhBarSquared;
 double k, kSquared;
 double n;
+vector<double> coulombPhase;
 vector<double> coulombF;
 vector<double> coulombG;
 vector<double> coulombFPrime;
@@ -81,6 +83,10 @@ double
 getWoodSaxonVolumeRe(double R);
 double
 getCoulombPotential(double R);
+void
+normalizeWaveFunctions(generalParametersClass &parameter);
+void
+setCoulombPhase(generalParametersClass &parameters);
 double
 kernelFunction(double R);
 double V0_r, R0_r, a0_r;
@@ -96,9 +102,6 @@ getSmatrix(generalParametersClass &parameter);
 
 private:
 };
-
-
-
 
 partitionClass::partitionClass(const char * nameChar, bool energyLabBool,
                                double energyDouble, double m1Double,
@@ -129,6 +132,7 @@ partitionClass::partitionClass(const char * nameChar, bool energyLabBool,
         kSquared = 2 * m * energy / hBarSquared;
         k = sqrt(abs(kSquared));
         n = z1 * z2 * 1.43997 *m / hBarSquared / k;
+        coulombPhase.resize(parameters.LMAX + 1, 0.0);
         coulombF.resize(parameters.LMAX + 1, 0.0);
         coulombG.resize(parameters.LMAX + 1, 0.0);
         coulombFPrime.resize(parameters.LMAX + 1, 0.0);
@@ -206,9 +210,38 @@ partitionClass::getSmatrix(generalParametersClass &parameter){
                 AsquaredPlusBsquared = A * A + B * B;
                 sMatrixRe[l_] = (A * C + B * D) / AsquaredPlusBsquared;
                 sMatrixIm[l_] = (A * D - B * C) / AsquaredPlusBsquared;
-                printf("% .5e\t% .5e\t% .5e\t% .5e\t% .5e\n", parameter.R[parameter.N-2],x1/x2,y1/y2, F1/F2, G1/G2);
+                //  printf("% .5e\t% .5e\t% .5e\t% .5e\t% .5e\n", parameter.R[parameter.N-2],x1/x2,y1/y2, F1/F2, G1/G2);
         }
 } // partitionClass::getSmatrix
+
+void
+partitionClass::normalizeWaveFunctions(generalParametersClass &parameter){
+        double S1, S2;
+        double N1, N2;
+        double A, B;
+        double x, y;
+        double F, G;
+        double xEx, yEx;
+        for (int l_ = 0; l_ <= parameter.LMAX; l_++) {
+                x=waveFunctionRe[l_][parameter.N-2];
+                y=waveFunctionIm[l_][parameter.N-2];
+                S1=sMatrixRe[l_];
+                S2=sMatrixIm[l_];
+                F =coulombF[l_];
+                G=coulombG[l_];
+                A=(1+S1)*F+S2*G;
+                B=(1-S1)*G+S2*F;
+                N1=(A*x+B*y)/(x*x+y*y);
+                N2=(B*x-A*y)/(x*x+y*y);
+                for (int i = 0; i < parameter.N; i++) {
+                        xEx=waveFunctionRe[l_][i];
+                        yEx=waveFunctionIm[l_][i];
+                        waveFunctionRe[l_][i]=N1*xEx - N2*yEx;
+                        waveFunctionIm[l_][i]=N1*yEx + N2*xEx;
+                }
+        }
+}
+
 
 void
 partitionClass::printWaveFunction(generalParametersClass &parameter){
@@ -216,27 +249,27 @@ partitionClass::printWaveFunction(generalParametersClass &parameter){
         string filename = name + ".wfn";
 
         pFile = fopen(filename.data(), "w");
-        //      fprintf(pFile, "# Wave Function For the ");
-        //      fprintf(pFile, "%s", name.data());
-        //      fprintf(pFile, " partition \n");
+        fprintf(pFile, "# Wave Function For the ");
+        fprintf(pFile, "%s", name.data());
+        fprintf(pFile, " partition \n");
 
         if (boundStateQ()) {
                 fprintf(pFile, "# R [fm]     Psi \n");
                 for (int i = 0; i < parameter.N; i++) {
-                        //                      fprintf (pFile, "% .3e\t%
-                        //                      .5e\n",parameter.R[i],waveFunctionRe[i]);
+                        fprintf (pFile, "% .3e\t% .5e\n",parameter.R[i],waveFunctionRe[l][i]);
                 }
-        } else {
-                //          fprintf(pFile, "# R [fm]       ");
+        }
+        else {
+                fprintf(pFile, "# R [fm]       ");
                 for (int l_ = parameter.LMIN; l_ <= parameter.LMAX; l_++) {
-                        //                  fprintf(pFile, "PsiRe[%d]      PsiIm[%d]        ", l_, l_);
+                        fprintf(pFile, "PsiRe[%d]      PsiIm[%d]        ", l_, l_);
                 }
-                //      fprintf(pFile, "\n");
+                fprintf(pFile, "\n");
                 for (int Ri = 0; Ri < parameter.N; Ri++) {
                         fprintf(pFile, "% .3e\t", parameter.R[Ri]);
 
                         for (int l_ = parameter.LMIN; l_ <= parameter.LMAX; l_++) {
-                                fprintf(pFile, "% .5e\t% .5e\t", waveFunctionRe[l_][Ri],
+                                fprintf(pFile, "% .5e\t% .5e\t\t", waveFunctionRe[l_][Ri],
                                         waveFunctionIm[l_][Ri]);
                         }
                         fprintf(pFile, "\n");
@@ -261,44 +294,6 @@ partitionClass::boundStateQ(){
                 return false;
 }
 
-void
-applyFiniteDiffMethodFor(partitionClass &partition,
-                         generalParametersClass                &parameter){
-        double subKernelFunction;
-        double kappaSquared = parameter.H * parameter.H;
-
-        for (int l_ = parameter.LMIN; l_ <= parameter.LMAX; l_++) {
-                partition.l = l_;
-                partition.waveFunctionRe[l_][0] = 0.0;
-                partition.waveFunctionRe[l_][1] = 0.01;
-                partition.waveFunctionIm[l_][0] = 0.0;
-                partition.waveFunctionIm[l_][1] = 0.01;
-                partition.waveFunctionPrimeRe[l_][0] = 0.01;
-                partition.waveFunctionPrimeIm[l_][0] = 0.01;
-                for (int i = 1; i < parameter.N; i++) {
-                        subKernelFunction =
-                                2.0 - kappaSquared * partition.kernelFunction(parameter.R[i]);
-                        partition.waveFunctionRe[l_][i + 1] =
-                                subKernelFunction * partition.waveFunctionRe[l_][i]
-                                - partition.waveFunctionRe[l_][i - 1]
-                                - kappaSquared
-                                * partition.getWoodSaxonVolumeIm(parameter.R[i])
-                                * partition.waveFunctionIm[l_][i];
-                        partition.waveFunctionIm[l_][i + 1] =
-                                subKernelFunction * partition.waveFunctionIm[l_][i]
-                                - partition.waveFunctionIm[l_][i - 1]
-                                + kappaSquared
-                                * partition.getWoodSaxonVolumeIm(parameter.R[i])
-                                * partition.waveFunctionRe[l_][i];
-                        partition.waveFunctionPrimeRe[l_][i] =
-                                (partition.waveFunctionRe[l_][i + 1] - partition.waveFunctionRe[l_][i - 1])
-                                / parameter.H /2.;
-                        partition.waveFunctionPrimeIm[l_][i] =
-                                (partition.waveFunctionIm[l_][i + 1] - partition.waveFunctionIm[l_][i - 1])
-                                / parameter.H /2.;
-                }
-        }
-} // applyFiniteDiffMethodFor
 
 void
 applyNumerovMethodFor(partitionClass &partition,
@@ -427,126 +422,42 @@ partitionClass::setCoulombWaveFunctions(
                 &F_exponent, &G_exponent);
 }
 
-int
-functionForChi(double t, const double x[], double f[], void * params){
-        double temp1 = ((double *)params)[0];
-        double temp2 = ((double *)params)[1];
-
-        //  printf("%f\t%f\n", ((double *)params)[0], ((double *)params)[1]);
-        f[0] = x[1];
-        f[1] =  temp1 * x[0] + temp2;
-        return GSL_SUCCESS;
-}
-
-
-int
-functionForUpsilon(double t, const double y[], double f[], void * params){
-        double temp1 = ((double *)params)[0];
-        double temp2 = ((double *)params)[1];
-
-        //  printf("%f\t%f\n", ((double *)params)[0], ((double *)params)[1]);
-        f[0] = y[1];
-        f[1] =  temp1 * y[0] + temp2;
-        return GSL_SUCCESS;
-}
-
-
-
-
 void
-gsl_solveODE(partitionClass &partition,
-             generalParametersClass    &parameter){
-        int l_ = partition.l;
-
-        double tChi = parameter.RMIN;
-        double tUpsilon = parameter.RMIN;
-
-        double remnantForChi[2] = { 0.0, 0.0 };
-        double remnantForUpsilon[2] = { 0.0, 0.0 };
-
-        void * pointerRemnantForChi = &remnantForChi;
-        void * pointerRemnantForUpsilon = &remnantForUpsilon;
-
-        double y[2];
-        double x[2];
-
-        gsl_odeiv2_system systemForChi = { functionForChi, NULL, 2,
-                                           pointerRemnantForChi };
-        gsl_odeiv2_system systemForUpsilon = { functionForUpsilon, NULL, 2,
-                                               pointerRemnantForUpsilon };
-
-        gsl_odeiv2_driver * driverForChi = gsl_odeiv2_driver_alloc_y_new(
-                &systemForChi, gsl_odeiv2_step_rk2, 1e-6, 1e-6, 0.0);
-        gsl_odeiv2_driver * driverForUpsilon = gsl_odeiv2_driver_alloc_y_new(
-                &systemForUpsilon, gsl_odeiv2_step_rkf45, 1e-6, 1e-6, 0.0);
-
-        int statusForChi;
-        int statusForUpsilon;
-
-        //    for (int l_ = 0; l_ < parameter.LMAX; l_++) {
-        x[0] = 0.0;
-        x[1] = 0.001;
-        y[0] = 0.0;
-        y[1] = 0.001;
-        partition.waveFunctionRe[l_][0] = 0.0;
-        partition.waveFunctionIm[l_][0] = 0.0;
-        partition.waveFunctionPrimeRe[l_][0] = 0.001;
-        partition.waveFunctionPrimeIm[l_][0] = 0.001;
-        for (int i = 1; i < parameter.N; i++) {
-                remnantForChi[0] = -partition.kernelFunction(parameter.R[i]);
-                remnantForChi[1] =  -partition.getWoodSaxonVolumeIm(parameter.R[i])
-                                   * partition.waveFunctionIm[l_][i - 1];
-                remnantForUpsilon[0] = -partition.kernelFunction(parameter.R[i]);
-                remnantForUpsilon[1] = partition.getWoodSaxonVolumeIm(parameter.R[i])
-                                       * partition.waveFunctionRe[l_][i - 1];
-                statusForChi =  gsl_odeiv2_driver_apply(driverForChi, &tChi, parameter.R[i], x);
-                statusForUpsilon =  gsl_odeiv2_driver_apply(driverForUpsilon, &tUpsilon, parameter.R[i], y);
-
-                //  printf("%f\t%f\n", remnantForChi[1], remnantForUpsilon[1]);
-                if (statusForChi && statusForUpsilon != GSL_SUCCESS) {
-                        printf("error, return value=%d\n", statusForChi);
-                }
-                partition.waveFunctionRe[l_][i] = x[0];
-                partition.waveFunctionIm[l_][i] = y[0];
-                partition.waveFunctionPrimeRe[l_][i] = x[1];
-                partition.waveFunctionPrimeIm[l_][i] = y[1];
-                //        printf("%f\t% .5e\t% .5e\n", parameter.R[i], x[0], y[0]);
+partitionClass::setCoulombPhase(generalParametersClass &parameter){
+        gsl_sf_result arg;
+        gsl_sf_result lnr;
+        for (int l_ = 0; l_ <= parameter.LMAX; l_++) {
+                gsl_sf_lngamma_complex_e(l_, n, &lnr, &arg);
+                coulombPhase[l_]=arg.val;
+                //    printf("%d\t%f\t% .6e\n",l_, arg.val,arg.err);
         }
 
-//        }
-        gsl_odeiv2_driver_free(driverForUpsilon);
-        gsl_odeiv2_driver_free(driverForChi);
-} // gsl_solveODE
+}
+
+
 
 
 int
 main(void){
 
         int arraySize = 801;
-        generalParametersClass generalParameters(arraySize, 0.001, 40.0, 0, 20, 1.E-6);
+        generalParametersClass generalParameters(arraySize, 0.001, 40.0, 0, 25, 1.E-6);
         partitionClass firstPartition("Zn67_d", true, 6.0, 2., 67., 1, 30,
                                       generalParameters);
 
         firstPartition.setWoodsSaxonRe(107.,4.26463,0.86);
         firstPartition.setWoodsSaxonIm(40.24,6.22635,0.884);
         firstPartition.setCoulombR(5.28001);
+        firstPartition.setCoulombPhase(generalParameters);
 
-
-
-        //  gsl_solveODE(firstPartition, generalParameters);
-
-        //        partitionClass secondPartition("Zn67_d", true, 6.0, 2., 67., 1, 30,
-        //        generalParameters);
-        //        secondPartition.setWoodsSaxonParameters(-107.0, 4.32555, 0.86,
-        //        0.0, 1.0, 1.0, 4.87386);
-        // applyFiniteDiffMethodFor(firstPartition, generalParameters);
         //        fitDepthOfPotential(firstPartition, generalParameters, 0.5);
-        // firstPartition.printWaveFunction(generalParameters);
         applyNumerovMethodFor(firstPartition, generalParameters);
         firstPartition.getSmatrix(generalParameters);
+        firstPartition.normalizeWaveFunctions(generalParameters);
+        firstPartition.printWaveFunction(generalParameters);
 
         for (int l_ = 0; l_ <= generalParameters.LMAX; l_++) {
-                printf("%d\t% .5e\t% .5e\n", l_, firstPartition.sMatrixRe[l_], firstPartition.sMatrixIm[l_]);
+                printf("%d\t% .5e\n", l_, firstPartition.coulombPhase[l_]);
         }
 
         return 0;
