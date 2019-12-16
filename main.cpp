@@ -139,7 +139,7 @@ partitionClass::partitionClass(const char * nameChar, bool energyLabBool,
         twoMuDevidedByhBarSquared = 2 * m / hBarSquared;
         kSquared = 2 * m * energy / hBarSquared;
         k = sqrt(abs(kSquared));
-        n = z1 * z2 * 1.43997 *m / hBarSquared / k;
+        n = z1 * z2 * 1.4399764 *m / hBarSquared / k;
         coulombPhase.resize(parameters.LMAX + 1, 0.0);
         coulombF.resize(parameters.LMAX + 1, 0.0);
         coulombG.resize(parameters.LMAX + 1, 0.0);
@@ -218,7 +218,9 @@ partitionClass::getSmatrix(generalParametersClass &parameter){
                 AsquaredPlusBsquared = A * A + B * B;
                 sMatrixRe[l_] = (A * C + B * D) / AsquaredPlusBsquared;
                 sMatrixIm[l_] = (A * D - B * C) / AsquaredPlusBsquared;
-                //  printf("% .5e\t% .5e\t% .5e\t% .5e\t% .5e\n", parameter.R[parameter.N-2],x1/x2,y1/y2, F1/F2, G1/G2);
+                //    printf("%d\t% .15f\n",l_,
+                //         sqrt(pow(sMatrixRe[l_],2)+pow(sMatrixIm[l_],2)));
+                //G1, G2);
         }
 } // partitionClass::getSmatrix
 
@@ -422,6 +424,7 @@ int
 partitionClass::setCoulombWaveFunctions(
         generalParametersClass &parameters){
         double F_exponent, G_exponent;
+        //    printf("%f\n", parameters.R[parameters.N-2]);
         return gsl_sf_coulomb_wave_FGp_array(
                 parameters.LMIN, parameters.LMAX,
                 n, k * parameters.R[parameters.N - 2], // attention: derivative of F'(x) and G'(x) goes over x=kr
@@ -459,10 +462,10 @@ partitionClass::nuclearAmplitude(double theta, double *amplitude){
         amplitude[1]=0;
         for (size_t l = 0; l < coulombPhase.size(); l++) {
                 a= (2*l+1.0);
-                b1= cos(2*coulombPhase[l]*sMatrixIm[l])
-                    +sin(2*coulombPhase[l]*(sMatrixRe[l]-1.0));
-                b2=sin(2*coulombPhase[l]*sMatrixIm[l])
-                    -cos(2*coulombPhase[l]*(sMatrixRe[l]-1.0));
+                b1= cos(2*coulombPhase[l])*sMatrixIm[l]
+                    +sin(2*coulombPhase[l])*(sMatrixRe[l]-1.0);
+                b2=sin(2*coulombPhase[l])*sMatrixIm[l]
+                    -cos(2*coulombPhase[l])*(sMatrixRe[l]-1.0);
                 c=gsl_sf_legendre_Pl(l, cos(theta));
                 amplitude[0] =amplitude[0] +a*b1*c/2.0/k;
                 amplitude[1] =amplitude[1] +a*b2*c/2.0/k;
@@ -474,13 +477,13 @@ double
 partitionClass::getDifferentialCrossSection(double theta){
         double differentialCrossSection;
         double a1, a2;
-        double coulAmplitude[2], nuclAmplitude[2]={0.,0.};
+        double coulAmplitude[2], nuclAmplitude[2];
         coulombAmplitude(theta, coulAmplitude);
-        //    nuclearAmplitude(theta, nuclAmplitude);
-        a1= coulAmplitude[0]+nuclAmplitude[0];
-        a2=coulAmplitude[1]+nuclAmplitude[1];
+        nuclearAmplitude(theta, nuclAmplitude);
+        a1= coulAmplitude[0] + 0.0*nuclAmplitude[0];
+        a2= coulAmplitude[1] + 0.0*nuclAmplitude[1];
         differentialCrossSection= a1*a1+a2*a2;
-        return sqrt(differentialCrossSection);
+        return differentialCrossSection;
 }
 
 
@@ -489,13 +492,13 @@ int
 main(void){
 
         int arraySize = 801;
-        generalParametersClass generalParameters(arraySize, 0.001, 40.0, 0, 25, 1.E-6);
-        partitionClass firstPartition("Zn67_d", true, 6.0, 2., 67., 1, 30,
+        generalParametersClass generalParameters(arraySize, 0.001, 19.54, 0, 40, 1.E-6);
+        partitionClass firstPartition("3He_14C", true, 72.0, 4.002602, 14.003241, 2, 6,
                                       generalParameters);
 
-        firstPartition.setWoodsSaxonRe(107.,4.26463,0.86);
-        firstPartition.setWoodsSaxonIm(40.24,6.22635,0.884);
-        firstPartition.setCoulombR(5.28001);
+        firstPartition.setWoodsSaxonRe(150.0,1.19926,0.86);
+        firstPartition.setWoodsSaxonIm(3.86,6.63592,0.496);
+        firstPartition.setCoulombR(2.5984);
 
         firstPartition.setCoulombPhase();
 
@@ -503,19 +506,13 @@ main(void){
         applyNumerovMethodFor(firstPartition, generalParameters);
         firstPartition.getSmatrix(generalParameters);
         firstPartition.normalizeWaveFunctions(generalParameters);
-        firstPartition.printWaveFunction(generalParameters);
+        //    firstPartition.printWaveFunction(generalParameters);
 
-        double amplitude[2];
 
-        for (double theta = 0.001; theta < 180; theta++) {
-                firstPartition.coulombAmplitude(theta /180.0 *3.14, amplitude);
-                printf("%f\t%f\n", theta,sqrt(amplitude[0]*amplitude[0]
-                                              + amplitude[1]*amplitude[1]));
+        for (double theta = 1.00; theta < 180; theta++) {
+                printf("%f\t%f\n",theta, firstPartition.getDifferentialCrossSection(theta/180*3.14));
         }
-
-        for (int l_ = 0; l_ <= generalParameters.LMAX; l_++) {
-                //              printf("%d\t% .5e\n", l_, firstPartition.coulombPhase[l_]);
-        }
+        printf("%f\n", firstPartition.energy);
 
         return 0;
 
