@@ -1,4 +1,4 @@
-# Wave Function For the 3He_14C partition 
+# Wave Function For the deutronPlusZinc67 partition 
 # R [fm]       PsiRe[0]      PsiIm[0]        PsiRe[1]      PsiIm[1]        PsiRe[2]      PsiIm[2]        PsiRe[3]      PsiIm[3]        PsiRe[4]      PsiIm[4]        PsiRe[5]      PsiIm[5]        
  1.000e-03	 0.00000e+00	-0.00000e+00		-0.00000e+00	 0.00000e+00		 0.00000e+00	 0.00000e+00		 0.00000e+00	 0.00000e+00		 0.00000e+00	-0.00000e+00		-0.00000e+00	 0.00000e+00		
  2.542e-02	-1.22455e-04	-1.82380e-04		-5.80537e-06	 1.64582e-06		-6.28547e-09	 7.98587e-08		 6.45497e-10	 2.62830e-10		 2.18818e-12	-3.15438e-12		-8.35631e-15	-8.26826e-15		
