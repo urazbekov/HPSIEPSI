@@ -10,11 +10,14 @@
 #include <gsl/gsl_monte_plain.h>
 #include <gsl/gsl_monte_miser.h>
 #include <gsl/gsl_monte_vegas.h>
+#include <gsl/gsl_sf_hyperg.h>
 #include <iostream>
 #include <math.h>
 #include <stdio.h>
 #include <string>
 #include <vector>
+#include <chrono>
+using namespace std::chrono;
 using namespace std;
 
 
@@ -167,20 +170,21 @@ partitionClass::partitionClass(const char * nameChar, bool energyLabBool,
     waveFunctionPrimeRe(parameters.LMAX + 1, rowWaveFunctionPrimeRe),
     waveFunctionPrimeIm(parameters.LMAX + 1, rowWaveFunctionPrimeIm)
 {
+    /* 2*amu/hbar^2 = 0.0478450 */
+
     hBarSquared = 41.801651165221026;
     name        = nameChar;
     energyLab   = energyLabBool;
     energy      = energyDouble;
     m1          = m1Double;
     m2          = m2Double;
-    z1          = z1Int;
-    z2          = z2Int;
-    N=parameters.N;
-    RMAX =parameters.RMAX;
     if (energyLab)
         energy = energy * m2 / (m1 + m2);
-    m = m1 * m2 / (m1 + m2);
-    /* 2*amu/hbar^2 = 0.0478450 */
+    z1                        = z1Int;
+    z2                        = z2Int;
+    N                         = parameters.N;
+    RMAX                      = parameters.RMAX;
+    m                         = m1 * m2 / (m1 + m2);
     twoMuDevidedByhBarSquared = 2 * m / hBarSquared;
     kSquared                  = 2 * m * energy / hBarSquared;
     k                         = sqrt(abs(kSquared));
@@ -197,7 +201,7 @@ partitionClass::partitionClass(const char * nameChar, bool energyLabBool,
 
 double deltaInRungeKutta(double * chi)
 {
-    return((chi[0] + 2 * chi[1] + 2 * chi[2] + chi[3]) / 6.0);
+    return((chi[0] + 2.0 * chi[1] + 2.0 * chi[2] + chi[3]) / 6.0);
 }
 
 
@@ -214,12 +218,13 @@ partitionClass::applyRungeKuttaMethod(generalParametersClass &parameter)
     double Vi, ViPlus, ViPlusHalf;
     double fi, fiPlus, fiPlusHalf;
 
-    for (int l = parameter.LMIN; l <= parameter.LMAX; l++)
+    for (int l_ = 0; l_ <= parameter.LMAX; l_++)
     {
-        waveFunctionRe[l][0]      = 0.0;
-        waveFunctionPrimeRe[l][0] = 0.001;
-        waveFunctionIm[l][0]      = 0.0;
-        waveFunctionPrimeIm[l][0] = 0.001;
+        waveFunctionRe[l_][0]      = 0.0;
+        waveFunctionIm[l_][0]      = 0.0;
+        waveFunctionPrimeRe[l_][0] = 1E-1;
+        waveFunctionPrimeIm[l_][0] = 1E-1;
+        l                          = l_;
         for (int i = 0; i < parameter.N; i++)
         {
             xi = waveFunctionRe[l][i];
@@ -227,7 +232,6 @@ partitionClass::applyRungeKuttaMethod(generalParametersClass &parameter)
             yi = waveFunctionIm[l][i];
             ni = waveFunctionPrimeIm[l][i];
             Ri = parameter.R[i];
-
 
             Vi         = getWoodSaxonVolumeIm(Ri);
             ViPlus     = getWoodSaxonVolumeIm(Ri + h);
@@ -257,12 +261,10 @@ partitionClass::applyRungeKuttaMethod(generalParametersClass &parameter)
             upsilon[3] = h * (ni + eta[2]);
             eta[3]     = h * (-fiPlus * (yi + upsilon[2]) + ViPlus * (xi + chi[2]));
 
-            waveFunctionRe[l][i + 1]      = xi + deltaInRungeKutta(chi);
-            waveFunctionPrimeRe[l][i + 1] = mi + deltaInRungeKutta(mu);
-            waveFunctionIm[l][i + 1]      = yi + deltaInRungeKutta(upsilon);
-            waveFunctionPrimeIm[l][i + 1] = ni + deltaInRungeKutta(eta);
-
-            //    printf("%f\t%f\n", Ri, ni);
+            waveFunctionRe[l_][i + 1]      = xi + deltaInRungeKutta(chi);
+            waveFunctionPrimeRe[l_][i + 1] = mi + deltaInRungeKutta(mu);
+            waveFunctionIm[l_][i + 1]      = yi + deltaInRungeKutta(upsilon);
+            waveFunctionPrimeIm[l_][i + 1] = ni + deltaInRungeKutta(eta);
         }
     }
 } /* partitionClass::applyRungeKuttaMethod */
@@ -332,10 +334,10 @@ partitionClass::getSmatrix(generalParametersClass &parameter)
     double AsquaredPlusBsquared;
     for (int l_ = parameter.LMIN; l_ <= parameter.LMAX; l_++)
     {
-        x1                   = waveFunctionRe[l_][parameter.N - 2];
-        x2                   = waveFunctionPrimeRe[l_][parameter.N - 2];
-        y1                   = waveFunctionIm[l_][parameter.N - 2];
-        y2                   = waveFunctionPrimeIm[l_][parameter.N - 2];
+        x1                   = waveFunctionRe[l_][N - 10];
+        x2                   = waveFunctionPrimeRe[l_][N - 10];
+        y1                   = waveFunctionIm[l_][N - 10];
+        y2                   = waveFunctionPrimeIm[l_][N - 10];
         F1                   = coulombF[l_];
         F2                   = k * coulombFPrime[l_];
         G1                   = coulombG[l_];
@@ -351,14 +353,26 @@ partitionClass::getSmatrix(generalParametersClass &parameter)
         AsquaredPlusBsquared = A * A + B * B;
         sMatrixRe[l_]        = (A * C + B * D) / AsquaredPlusBsquared;
         sMatrixIm[l_]        = (A * D - B * C) / AsquaredPlusBsquared;
-        /*
-         *    printf("%d\t% .15f\n",l_,
-         *         sqrt(pow(sMatrixRe[l_],2)+pow(sMatrixIm[l_],2)));
-         * G1, G2);
-         */
+
+        //    printf("%d\t%f\t%f\t%f\t%f\n", l_, G1, G2, F1, F2);
     }
 } /* partitionClass::getSmatrix */
 
+
+int
+partitionClass::setCoulombWaveFunctions(
+    generalParametersClass &parameters)
+{
+    double F_exponent, G_exponent;
+
+    /*    printf("%f\n", parameters.R[parameters.N-2]); */
+    return(gsl_sf_coulomb_wave_FGp_array(
+               0, parameters.LMAX,
+               n, k * parameters.R[N - 10],         /* attention: derivative of F'(x) and G'(x) goes over x=kr */
+               /*    1.0, 5.0, */
+               &coulombF[0], &coulombFPrime[0], &coulombG[0], &coulombGPrime[0],
+               &F_exponent, &G_exponent));
+}
 
 void
 partitionClass::normalizeWaveFunctions(generalParametersClass &parameter)
@@ -400,9 +414,9 @@ partitionClass::printWaveFunction(generalParametersClass &parameter)
     string filename = name + ".wfn";
 
     pFile = fopen(filename.data(), "w");
-    fprintf(pFile, "# Wave Function For the ");
-    fprintf(pFile, "%s", name.data());
-    fprintf(pFile, " partition \n");
+    //  fprintf(pFile, "# Wave Function For the ");
+    //  fprintf(pFile, "%s", name.data());
+    //  fprintf(pFile, " partition \n");
 
     if (boundStateQ())
     {
@@ -414,12 +428,12 @@ partitionClass::printWaveFunction(generalParametersClass &parameter)
     }
     else
     {
-        fprintf(pFile, "# R [fm]       ");
+        //    fprintf(pFile, "# R [fm]       ");
         for (int l_ = parameter.LMIN; l_ <= parameter.LMAX; l_++)
         {
-            fprintf(pFile, "PsiRe[%d]      PsiIm[%d]        ", l_, l_);
+            //        fprintf(pFile, "PsiRe[%d]      PsiIm[%d]        ", l_, l_);
         }
-        fprintf(pFile, "\n");
+        //  fprintf(pFile, "\n");
         for (int Ri = 0; Ri < parameter.N; Ri++)
         {
             fprintf(pFile, "% .3e\t", parameter.R[Ri]);
@@ -571,20 +585,7 @@ fitDepthOfPotential(partitionClass &partition,
 }
 
 
-int
-partitionClass::setCoulombWaveFunctions(
-    generalParametersClass &parameters)
-{
-    double F_exponent, G_exponent;
 
-    /*    printf("%f\n", parameters.R[parameters.N-2]); */
-    return(gsl_sf_coulomb_wave_FGp_array(
-               parameters.LMIN, parameters.LMAX,
-               n, k * parameters.R[parameters.N - 2],         /* attention: derivative of F'(x) and G'(x) goes over x=kr */
-               /*    1.0, 5.0, */
-               &coulombF[0], &coulombFPrime[0], &coulombG[0], &coulombGPrime[0],
-               &F_exponent, &G_exponent));
-}
 
 
 void
@@ -592,7 +593,6 @@ partitionClass::setCoulombPhase()
 {
     gsl_sf_result arg;
     gsl_sf_result lnr;
-
     for (size_t l_ = 0; l_ <= coulombPhase.size(); l_++)
     {
         gsl_sf_lngamma_complex_e(1 + l_, n, &lnr, &arg);
@@ -749,35 +749,43 @@ integrateMonteCarlo(void)
     return(0);
 } /* integrateMonteCarlo */
 
+double functionWhittaker(double k, double m, double z)
+{
+    double exponent      = exp(-0.5 * z);
+    double power         = pow(z, m + 0.5);
+    double hyperFunction = gsl_sf_hyperg_U(0.5 + m - k, 1 + 2 * m, z);
+    return exponent * power * hyperFunction;
+}
 
 int
 main(void)
 {
-    generalParametersClass generalParameters(0.05, 20.0, 43, 1.E-6); // h RmaxTrial lMax, eps
-    printf("%f\t%f\t%d\n", generalParameters.RMIN, generalParameters.RMAX, generalParameters.N);
-    //  return 0;
-
-    partitionClass firstPartition("4He_12C", true, 72.0, 4., 12., 2, 6, generalParameters);
+    auto                   start = high_resolution_clock::now();
+    generalParametersClass generalParameters(0.01, 20.0, 43, 1.E-6); // h RmaxTrial lMax, eps
+    partitionClass         firstPartition("4He_12C", true, 72.0, 4., 12., 2, 6, generalParameters);
 
     firstPartition.setWoodsSaxonRe(150., 1.938, 0.65);
     firstPartition.setWoodsSaxonIm(4.0, 1.938, 0.65);
     firstPartition.setCoulombR(1.938);
-
     firstPartition.setCoulombPhase();
-
     /*        fitDepthOfPotential(firstPartition, generalParameters, 0.5); */
-    //  firstPartition.applyRungeKuttaMethod(generalParameters);
-    applyNumerovMethodFor(firstPartition, generalParameters);
+    firstPartition.applyRungeKuttaMethod(generalParameters);
+    //applyNumerovMethodFor(firstPartition, generalParameters);
     firstPartition.getSmatrix(generalParameters);
     firstPartition.normalizeWaveFunctions(generalParameters);
     firstPartition.printWaveFunction(generalParameters);
 
+    for (int i = 0; i <= generalParameters.LMAX; i++)
+    {
+        //    printf("%d\t% .4f + % .4fi\n", i, firstPartition.sMatrixRe[i], firstPartition.sMatrixIm[i]);
+    }
 
     for (double theta = 1.001; theta < 180.001; theta++)
     {
-        printf("%f\t%f\n", theta, firstPartition.getDifferentialCrossSection(theta / 180.0 * 3.14));
+        //  printf("%f\t%f\n", theta, firstPartition.getDifferentialCrossSection(theta / 180.0 * 3.14));
     }
-
-
+    auto stop     = high_resolution_clock::now();
+    auto duration = duration_cast<microseconds>(stop - start);
+    cout << duration.count() / 1000 << "ms" << endl;
     return(0);
 } /* main */
