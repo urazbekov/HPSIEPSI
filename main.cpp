@@ -786,6 +786,6 @@ main(void)
     }
     auto stop     = high_resolution_clock::now();
     auto duration = duration_cast<microseconds>(stop - start);
-    cout << duration.count() / 1000 << "ms" << endl;
+    cout << "The compilation took "<<duration.count() / 1000 << " ms" << endl;
     return(0);
 } /* main */
