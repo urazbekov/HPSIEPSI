@@ -757,10 +757,25 @@ double functionWhittaker(double k, double m, double z)
     return exponent * power * hyperFunction;
 }
 
+double
+f(double x, void * params)
+{
+  double m[4] = *(double *) params;
+  double f = gsl_pow_int(x, m[0]) + 1.0;
+  return f;
+}
+
+
 int
 main(void)
 {
     auto                   start = high_resolution_clock::now();
+
+    double m[4];
+    m[0]=1;
+
+    printf("%f\n", f(0.3, &m));
+
     generalParametersClass generalParameters(0.01, 20.0, 43, 1.E-6); // h RmaxTrial lMax, eps
     partitionClass         firstPartition("4He_12C", true, 72.0, 4., 12., 2, 6, generalParameters);
 
