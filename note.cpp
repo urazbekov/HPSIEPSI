@@ -1,3 +1,20 @@
+
+struct structParams{
+  double *a;
+  double *b;
+  double *c;
+  double *d;
+  double *e;
+};
+
+double
+f(double x, void * structParams)
+{
+  double *eta = ((struct structParams *) structParams) -> a;
+  double f = gsl_pow_int(*eta, 2) + 1.0;
+  return f;
+}
+
 void
 applyFiniteDiffMethodFor(partitionClass &partition,
                          generalParametersClass                &parameter){
