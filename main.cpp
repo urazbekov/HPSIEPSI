@@ -71,6 +71,7 @@ double k, kSquared;
 int N;
 double RMAX;
 double n;
+vector<double> boundWaveFunction;
 vector<double> coulombPhase;
 vector<double> coulombF;
 vector<double> coulombG;
@@ -112,6 +113,8 @@ void normalizeWaveFunctions(generalParametersClass &parameter);
 void setCoulombPhase();
 
 double kernelFunction(double R);
+
+void getBoundWaveFunction(generalParametersClass &parameter);
 
 double V0_r, R0_r, a0_r;
 double V0_i, R0_i, a0_i;
@@ -166,6 +169,7 @@ partitionClass::partitionClass(const char *nameChar, bool energyLabBool, double
     coulombGPrime.resize(parameters.LMAX + 1, 0.0);
     sMatrixRe.resize(parameters.LMAX + 1, 0.0);
     sMatrixIm.resize(parameters.LMAX + 1, 0.0);
+    boundWaveFunction.resize(parameters.N, 0.0);
 }
 
 double deltaInRungeKutta(double *chi)
@@ -686,34 +690,45 @@ double functionWhittakerDerivative(double k, double m, double z)
     return sum / h0;
 }
 
-struct structParams
+void partitionClass::getBoundWaveFunction(generalParametersClass &parameter)
 {
-    double *a;
-    double *b;
-    double *c;
-    double *d;
-    double *e;
-};
+    int    assymp_i = parameter.N - 1;
+    double K[4], L[4];
+    double x, m;
+    double h;
+    h                                = parameter.H;
+    l                                = parameter.LMAX;
+    waveFunctionRe[l][assymp_i]      = functionWhittaker(-n, l + 0.5, 2.0 * k * parameter.R[assymp_i]);
+    waveFunctionPrimeRe[l][assymp_i] = -2.0 * k * functionWhittakerDerivative(-n, l + 0.5, 2.0 * k * parameter.R[assymp_i]);
 
-double f(double x, void *structParams)
-{
-    double *eta = ((struct structParams *) structParams)->a;
-    double f    = gsl_pow_int(*eta, 2) + 1.0;
-
-    return f;
+    for (int i = assymp_i; i >= 0; i--)
+    {
+        x                             = waveFunctionRe[l][i];
+        m                             = waveFunctionPrimeRe[l][i];
+        K[0]                          = h * m;
+        L[0]                          = -h*kernelFunction(parameter.R[i]) * x;
+        K[1]                          = h * (m + 0.5 * L[0]);
+        L[1]                          = -h*kernelFunction(parameter.R[i] + 0.5 * h) * (x + 0.5 * K[0]);
+        K[2]                          = h * (m + 0.5 * L[1]);
+        L[2]                          = -h*kernelFunction(parameter.R[i] + 0.5 * h) * (x + 0.5 * K[1]);
+        K[3]                          = h * (m + L[2]);
+        L[3]                          = -h*kernelFunction(parameter.R[i] + h) * (x + K[2]);
+        waveFunctionRe[l][i - 1]      = x + deltaInRungeKutta(K);
+        waveFunctionPrimeRe[l][i - 1] = m + deltaInRungeKutta(L);
+        printf("%f\t%f\t%f\n", parameter.R[i], waveFunctionRe[l][i - 1], kernelFunction(parameter.R[i]));
+    }
 }
+
 
 int main(void)
 {
-    auto                start              = high_resolution_clock::now();
-    double              a                  = 1;
-    struct structParams functionParameters = {
-        &a, &a, &a, &a
-    };
+    auto                   start = high_resolution_clock::now();
 
-    printf("% .15f\t% .15f\n", functionWhittaker(-1, 0.5, 2.),
-           functionWhittakerDerivative(-1, 0.5, 2.0));
-
+    generalParametersClass generalParameters(0.1, 20.0, 1, 1.E-6);        // h RmaxTrial lMax, eps
+    partitionClass         boundPartition("1H_2H", false, -6.495, 1., 2., 1, 1, generalParameters);
+    boundPartition.setWoodsSaxonRe(131.934, 1.575, 0.65);
+    boundPartition.setCoulombR(1.575);
+    boundPartition.getBoundWaveFunction(generalParameters);
 /*
  *  generalParametersClass generalParameters(0.01, 20.0, 43, 1.E-6); // h RmaxTrial lMax, eps
  *  partitionClass         firstPartition("4He_12C", true, 72.0, 4., 12., 2, 6, generalParameters);
@@ -742,6 +757,6 @@ int main(void)
     auto stop     = high_resolution_clock::now();
     auto duration = duration_cast<microseconds>(stop - start);
 
-    cout << "The compilation took " << duration.count() / 1000 << " ms" << endl;
+    cout << "\n\nThe compilation took " << duration.count() / 1000 << " ms" << endl;
     return 0;
 }                                       /* main */
